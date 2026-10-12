@@ -137,13 +137,16 @@ function onKey(e) {
 
 /** @param {string} path */
 async function openNotebook(path) {
+  // A double tap asks twice, and opening takes a moment: a second editor would sit on top of the first.
+  if (app.editor || app.opening) return;
+  app.opening = true;
   try {
     const { openEditor } = await import('./editor/editorview.js');
     await openEditor(app, path);
   } catch (e) {
     if (/** @type {any} */ (e)?.code === 'MODULE_NOT_FOUND' || String(e).includes('Failed to fetch dynamically imported module')) toast('The editor is not built yet');
     else reportError(tr('无法打开'), e);
-  }
+  } finally { app.opening = false; }
 }
 app.openNotebook = openNotebook;
 

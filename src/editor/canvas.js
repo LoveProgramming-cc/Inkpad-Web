@@ -610,6 +610,11 @@ export class PageCanvas {
     const [left, top] = this._origin(i);
     const z = this._z(page);
     this.want = [left + fx * page.w * z - x, top + fy * page.h * z - y];
+    if (this._across()) {
+      // One page at a time: zooming about a point near the edge must not bring the next page in beside this one.
+      const [lo, hi] = this._span(i);
+      this.want[0] = Math.max(lo, Math.min(this.want[0], hi));
+    }
     this._configureAdj(this.want[0], this.want[1]);
     if (changed) this._zoomChanged();
   }
