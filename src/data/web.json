@@ -65,7 +65,20 @@
   "遇到笔或触摸的问题时打开，再把日志发给开发者": "Switch on when something is wrong with the pen or touch, then send the log to the developer",
   "（浏览器可能在空间不足时清除）": " (the browser may clear it when short of space)",
   "这个地址无法登录 Google": "Google sign-in is not possible at this address",
-  "Google 只允许 https 网址或本机地址（localhost）登录。请通过 https 网址（例如 GitHub Pages）打开 Inkpad 后再连接。": "Google only signs in pages served over https or from this machine (localhost). Open Inkpad at an https address (GitHub Pages, for example) and connect there."
+  "Google 只允许 https 网址或本机地址（localhost）登录。请通过 https 网址（例如 GitHub Pages）打开 Inkpad 后再连接。": "Google only signs in pages served over https or from this machine (localhost). Open Inkpad at an https address (GitHub Pages, for example) and connect there.",
+  "Inkpad 有新版本": "A new version of Inkpad is ready",
+  "重新载入": "Reload",
+  "安装 Inkpad": "Install Inkpad",
+  "已作为应用安装": "Installed as an app",
+  "像应用一样有自己的图标和窗口": "Its own icon and window, like any app",
+  "安装": "Install",
+  "在 Safari 里点“分享”，再选“添加到主屏幕”": "In Safari, tap Share, then “Add to Home Screen”",
+  "在浏览器菜单里选择“安装”或“添加到主屏幕”": "Choose “Install” or “Add to Home Screen” in the browser’s menu",
+  "应用": "App",
+  "离线使用": "Offline use",
+  "只在 https 网址下可用": "Only available at an https address",
+  "已就绪：没有网络也能打开和书写": "Ready: opens and writes without a network",
+  "正在准备，下次打开时可用": "Being prepared; available the next time it is opened"
  },
  "ja": {
   "Google Drive 没有给出上传地址": "Google Drive がアップロード先のアドレスを返しませんでした",
@@ -138,6 +151,19 @@
   "遇到笔或触摸的问题时打开，再把日志发给开发者": "ペンやタッチに問題があるときにオンにして、ログを開発者に送ってください",
   "（浏览器可能在空间不足时清除）": "（空き容量が不足するとブラウザが消去することがあります）",
   "这个地址无法登录 Google": "このアドレスでは Google にログインできません",
-  "Google 只允许 https 网址或本机地址（localhost）登录。请通过 https 网址（例如 GitHub Pages）打开 Inkpad 后再连接。": "Google へのログインは https のアドレスかこの端末自身（localhost）でのみ可能です。https のアドレス（GitHub Pages など）で Inkpad を開いてから接続してください。"
+  "Google 只允许 https 网址或本机地址（localhost）登录。请通过 https 网址（例如 GitHub Pages）打开 Inkpad 后再连接。": "Google へのログインは https のアドレスかこの端末自身（localhost）でのみ可能です。https のアドレス（GitHub Pages など）で Inkpad を開いてから接続してください。",
+  "Inkpad 有新版本": "Inkpad の新しいバージョンがあります",
+  "重新载入": "再読み込み",
+  "安装 Inkpad": "Inkpad をインストール",
+  "已作为应用安装": "アプリとしてインストール済み",
+  "像应用一样有自己的图标和窗口": "アプリのように専用のアイコンとウインドウで使えます",
+  "安装": "インストール",
+  "在 Safari 里点“分享”，再选“添加到主屏幕”": "Safari で「共有」をタップし、「ホーム画面に追加」を選びます",
+  "在浏览器菜单里选择“安装”或“添加到主屏幕”": "ブラウザのメニューで「インストール」または「ホーム画面に追加」を選びます",
+  "应用": "アプリ",
+  "离线使用": "オフラインで使う",
+  "只在 https 网址下可用": "https のアドレスでのみ利用できます",
+  "已就绪：没有网络也能打开和书写": "準備完了：ネットワークがなくても開いて書けます",
+  "正在准备，下次打开时可用": "準備中です。次に開いたときから使えます"
  }
 }

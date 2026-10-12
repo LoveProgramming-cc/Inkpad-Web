@@ -14,6 +14,7 @@ import { inform } from './ui/dialog.js';
 import { toast } from './ui/toast.js';
 import { menuPopover } from './ui/popover.js';
 import { SyncScheduler } from './sync/scheduler.js';
+import { startPwa } from './platform/pwa.js';
 import { completeRedirect } from './sync/googleauth.js';
 
 /** What the screens share. @type {any} */
@@ -103,6 +104,7 @@ async function boot() {
   // Back from a trip to Google's sign-in page.
   try { if (await completeRedirect(vfs)) toast(tr('已连接 Google Drive')); } catch (e) { reportError(tr('连接 Google Drive 失败'), e); }
   app.scheduler.start();
+  startPwa(app);
   // Other tabs change the library too.
   vfs.onChange(() => { if (app.library && !app.editor) { clearTimeout(app._refreshTimer); app._refreshTimer = setTimeout(() => app.library.refresh(), 150); } });
   addEventListener('keydown', onKey);

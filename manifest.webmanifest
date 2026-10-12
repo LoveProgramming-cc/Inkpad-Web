@@ -1,0 +1,27 @@
+{
+  "name": "Inkpad",
+  "short_name": "Inkpad",
+  "description": "Handwritten notes, PDF annotation and whiteboards, kept in step through your own Google Drive.",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#37629f",
+  "categories": ["productivity", "education"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "file_handlers": [
+    {
+      "action": "./",
+      "accept": {
+        "application/pdf": [".pdf"],
+        "application/x-inkpad": [".inkpad"],
+        "application/x-goodnotes": [".goodnotes"]
+      }
+    }
+  ]
+}

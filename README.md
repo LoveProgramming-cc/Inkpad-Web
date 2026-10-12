@@ -46,6 +46,20 @@ One thing to know: browsers keep site data per origin, and every project page of
 origin `https://<user>.github.io`. Script on any other page of that account could read Inkpad's notebooks,
 OAuth secret and tokens. Use a custom domain, or a GitHub account that has only this site, if that matters.
 
+## Installing and working offline
+
+Served over https, Inkpad is an installable app (`manifest.webmanifest`) and a service worker
+(`sw.js`) keeps everything it is made of, so it opens and works without a network. When a new
+version has been deployed the page offers to reload.
+
+`sw.js` carries the list of files and a version derived from their contents. After changing any
+file of the app, run
+
+    node tools/build_sw.mjs
+
+before committing; `node --test tests/` fails while the list is out of date. A development
+server over plain http (or on localhost) does not use the service worker.
+
 ## Licence
 
 GPL-3.0-or-later; see `LICENSE`. Third-party code is listed in `THIRD-PARTY-NOTICES.md`.
@@ -75,6 +89,6 @@ GPL-3.0-or-later; see `LICENSE`. Third-party code is listed in `THIRD-PARTY-NOTI
 1. **R1 的两个前提还没有验证**（需要用户在场，用真实 Google 账号）：① 同一 Cloud 项目里新建的“Web 应用”客户端能否看到桌面/iOS 客户端创建的文件；② `oauth2.googleapis.com/token` 是否允许跨域，可续传上传的 `Location` 响应头是否读得到。第一个不成立就只能在网页版之间同步（见 PORTING.md R1）。
 2. `.otf`（CFF 轮廓）字体的子集嵌入没有测过，只测了 `.ttf`；`.ttc` 和可变字体会被拒绝。
 3. 真实笔/触屏/触控板的手感（R4）、各浏览器兼容性、性能走查（§11）、窄屏逐项走查、多标签页互斥的实测。
-4. PWA（可安装、离线缓存）按约定留给后续阶段，没有做。
+4. PWA（可安装、离线缓存、更新提示）已实现，见上文“Installing and working offline”；iOS 上“添加到主屏幕”后的行为（独立窗口里的 Google 登录、存储是否与 Safari 分开）尚未在真机验证。
 5. `Goodnotes` 导出是实验性的（与 B 一样，没有 Goodnotes 应用可验证）。
 6. 旧版（v3 之前）文件里没有 id 的元素用随机 id（R11），没有复现 B 的内容摘要 id。

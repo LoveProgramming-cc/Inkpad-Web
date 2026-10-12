@@ -11,6 +11,7 @@ import { loadClient, saveClient, installClient, exportClient, folderId, setFolde
 import { parseFolder, cloudFolderOf, lastSync } from '../sync/sync.js';
 import { connect } from '../sync/cloudmenu.js';
 import { fmtDate, tr, trf } from '../core/i18n.js';
+import * as pwa from '../platform/pwa.js';
 
 const TOOL_ROWS = [['lasso', '套索'], ['eraser', '橡皮擦'], ['hl', '荧光笔'], ['shape', '形状'], ['text', '文本'], ['note', '便签'], ['tape', '胶带'], ['laser', '激光笔'], ['image', '插入图片'], ['ruler', '尺子']];
 const EVERY = [[5, '5 秒'], [10, '10 秒'], [15, '15 秒'], [30, '30 秒'], [60, '1 分钟'], [120, '2 分钟'], [300, '5 分钟']];
@@ -96,7 +97,7 @@ export async function openPrefs(app, section) {
     actionRow(tr('客户端 ID'), null, idEntry), actionRow(tr('客户端密钥'), null, secretEntry),
     actionRow(tr('凭据'), tr('保存在本机浏览器里，不会发给 Google 以外的地方'),
       h('button', { onClick: commit }, tr('保存凭据')),
-      h('button', { onClick: async () => { const [f] = await pickFiles({ accept: '.json,application/json' }); if (f) { try { await installClient(app.vfs, await f.text()); const c = await loadClient(app.vfs); idEntry.value = c ? c.client_id : ''; secretEntry.value = c ? c.client_secret || '' : ''; toast(tr('已导入凭据')); refreshStatus(); } catch (e) { app.reportError(tr('无法使用这个凭据文件'), e); } } } }, tr('从 JSON 导入')),
+      h('button', { onClick: async () => { const [f] = await pickFiles({ accept: '.json,application/json' }); if (f) { try { await installClient(app.vfs, await f.text()); const c = await loadClient(app.vfs); idEntry.value = c ? c.client_id : ''; secretEntry.value = c ? c.client_secret || '' : ''; folderEntry.value = await folderId(app.vfs); toast(tr('已导入凭据')); refreshStatus(); } catch (e) { app.reportError(tr('无法使用这个凭据文件'), e); } } } }, tr('从 JSON 导入')),
       h('button', { onClick: async () => { try { await saveBlob(await exportClient(app.vfs), 'inkpad-google-client.json', { description: 'JSON', accept: { 'application/json': ['.json'] } }); } catch (e) { app.reportError(tr('导出失败'), e); } } }, tr('导出为 JSON'))),
     actionRow(tr('当前同步文件夹'), syncedTo ? syncedTo : tr('尚未同步'), syncedTo ? h('button', { class: 'flat', onClick: () => window.open('https://drive.google.com/drive/folders/' + encodeURIComponent(syncedTo), '_blank', 'noopener') }, tr('在浏览器中打开')) : null),
     expanderRow(tr('如何把笔记放到云端硬盘的其它位置'), null,
@@ -145,7 +146,14 @@ export async function openPrefs(app, section) {
       h('button', { onClick: async () => { const log = await app.vfs.kvGet('input_log', ''); await saveBlob(new Blob([log], { type: 'text/plain' }), 'inkpad-input.log'); } }, tr('下载日志')),
       h('button', { class: 'flat', onClick: async () => { await app.vfs.kvDelete('input_log'); toast(tr('已清空')); } }, tr('清空'))));
 
-  const body = h('div', { style: { padding: '4px 2px' } }, appearance, writing, google, storage, exportGroup, toolbar, advanced);
+  // -- the installed app
+  const installRow = pwa.isStandalone() ? actionRow(tr('安装 Inkpad'), tr('已作为应用安装'))
+    : pwa.canInstall() ? actionRow(tr('安装 Inkpad'), tr('像应用一样有自己的图标和窗口'), h('button', { class: 'suggested', onClick: async (/** @type {Event} */ e) => { if (await pwa.install()) /** @type {HTMLElement} */ (e.currentTarget).hidden = true; } }, tr('安装')))
+      : actionRow(tr('安装 Inkpad'), pwa.isApple() ? tr('在 Safari 里点“分享”，再选“添加到主屏幕”') : tr('在浏览器菜单里选择“安装”或“添加到主屏幕”'));
+  const appGroup = group(tr('应用'), null, installRow,
+    actionRow(tr('离线使用'), !pwa.offlineSupported() ? tr('只在 https 网址下可用') : pwa.worksOffline() ? tr('已就绪：没有网络也能打开和书写') : tr('正在准备，下次打开时可用')));
+
+  const body = h('div', { style: { padding: '4px 2px' } }, appearance, writing, google, storage, exportGroup, toolbar, appGroup, advanced);
   const p = showDialog({ title: tr('设置'), className: 'prefs', closeButton: true, build: () => body });
   if (section === 'google') setTimeout(() => google.scrollIntoView(), 50);
   await p;
