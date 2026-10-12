@@ -1,0 +1,67 @@
+/* -- popovers, dialogs, toasts, floating pills -------------------------------- */
+.popover {
+  position: fixed; z-index: 60; left: 0; top: 0;
+  background: var(--popover-bg); color: var(--fg);
+  border-radius: 16px; box-shadow: var(--shadow-pill);
+  overflow: auto; max-width: calc(100vw - 16px);
+  animation: pop 240ms var(--spring);
+}
+.popover.closing { animation: pop-out 130ms ease-in forwards; pointer-events: none; }
+@keyframes pop { from { opacity: 0; transform: scale(.86); } 40% { opacity: 1; } to { opacity: 1; transform: none; } }
+@keyframes pop-out { to { opacity: 0; transform: scale(.94); } }
+.popover .body { padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.popover.menu .body { padding: 6px; gap: 0; }
+.popover h4 { margin: 0; font-weight: 700; }
+.popover::-webkit-scrollbar { width: 12px; }
+.popover::-webkit-scrollbar-thumb { min-height: 48px; }
+.popover .choice { border-radius: 12px; background: none; font-weight: normal; }
+.popover .choice[aria-pressed="true"] { background: var(--card-bg); box-shadow: var(--raised); }
+.popover .tile { border-radius: 12px; padding: 0 2px; background: color-mix(in srgb, currentColor 5%, transparent); flex-direction: column; min-height: 62px; gap: 2px; font-size: .9em; }
+@media (hover: hover) { .popover .tile:hover { background: color-mix(in srgb, currentColor 10%, transparent); } }
+.scrim { position: fixed; inset: 0; z-index: 59; }
+
+dialog {
+  border: 0; padding: 0; color: var(--fg); background: var(--window-bg);
+  border-radius: 14px; box-shadow: 0 18px 60px rgba(0, 0, 0, .28), 0 0 0 .5px rgba(0, 0, 0, .08);
+  max-width: calc(100vw - 24px); max-height: calc(100vh - 24px); max-height: calc(100dvh - 24px);
+  overflow: hidden; font: inherit; outline: none;
+}
+dialog::backdrop { background: rgba(0, 0, 0, .32); animation: fade 220ms ease-out; }
+dialog[open] { display: flex; flex-direction: column; animation: dlg 320ms var(--spring); }
+dialog.closing { animation: dlg-out 150ms ease-in forwards; pointer-events: none; }
+dialog.closing::backdrop { animation: fade-out 150ms ease-in forwards; }
+@keyframes dlg { from { opacity: 0; transform: translateY(26px) scale(.95); } 45% { opacity: 1; } to { opacity: 1; transform: none; } }
+@keyframes dlg-out { to { opacity: 0; transform: translateY(14px) scale(.97); } }
+@keyframes fade { from { opacity: 0; } }
+@keyframes fade-out { to { opacity: 0; } }
+dialog .dbody { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+dialog .dhead { display: flex; align-items: center; gap: 8px; padding: 10px 12px; min-height: 52px; border-bottom: 1px solid var(--border); }
+dialog .dhead h2 { margin: 0; font-size: 1.05em; flex: 1; text-align: center; }
+dialog .dbody { padding: 16px; overflow: auto; flex: 1 1 auto; min-height: 0; }
+dialog .dfoot { display: flex; gap: 8px; justify-content: flex-end; padding: 12px 16px; border-top: 1px solid var(--border); flex-wrap: wrap; }
+dialog.alert { width: min(420px, calc(100vw - 24px)); }
+dialog.alert .dbody h2 { margin: 0 0 6px; font-size: 1.15em; }
+dialog.alert .dbody p { margin: 0; opacity: .85; white-space: pre-wrap; }
+dialog.alert .dfoot { justify-content: stretch; }
+dialog.alert .dfoot button { flex: 1; }
+
+.toasts[popover] { inset: auto 0 18px 0; margin: 0; border: 0; padding: 0; background: none; width: auto; height: auto; overflow: visible; color: inherit; }
+.toasts { position: fixed; left: 0; right: 0; bottom: 18px; z-index: 80; display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; }
+.toast { pointer-events: auto; display: flex; align-items: center; gap: 12px; padding: 8px 8px 8px 18px; min-height: 44px; border-radius: 999px; background: #323236; color: #fff; box-shadow: 0 4px 16px rgba(0, 0, 0, .35); max-width: calc(100vw - 24px); animation: toast 300ms var(--spring); }
+.toast.closing { animation: toast-out 170ms ease-in forwards; pointer-events: none; }
+@keyframes toast-out { to { opacity: 0; transform: translateY(10px) scale(.96); } }
+.toast button { background: rgba(255, 255, 255, .14); color: #8fd0ff; border-radius: 999px; font-weight: 600; }
+@keyframes toast { from { opacity: 0; transform: translateY(18px) scale(.94); } to { opacity: 1; transform: none; } }
+
+.pill { background: var(--popover-bg); color: var(--fg); border-radius: 18px; padding: 5px 7px; box-shadow: var(--shadow-pill); display: flex; align-items: center; gap: 2px; }
+.pill button { min-width: 36px; min-height: 36px; padding: 0; border-radius: 12px; background: none; font-weight: normal; }
+@media (hover: hover) { .pill button:hover { background: color-mix(in srgb, currentColor 7%, transparent); } }
+.pill button[aria-pressed="true"] { background: color-mix(in srgb, currentColor 11%, transparent); }
+.pill button.drop { min-width: 0; padding: 0 6px; background: color-mix(in srgb, var(--accent) 16%, transparent); }
+.pill button.swatch, .swatch { border-radius: 999px; min-width: 34px; min-height: 34px; padding: 0; }
+.pill .sep { width: 1px; height: 18px; margin: 0 7px; background: color-mix(in srgb, currentColor 14%, transparent); }
+.pill > label { opacity: .7; font-size: .93em; }
+.status { background: var(--popover-bg); color: var(--fg); opacity: .95; border-radius: 999px; padding: 5px 14px; font-size: .9em; font-feature-settings: "tnum"; box-shadow: 0 3px 12px rgba(0, 0, 0, .10), 0 0 0 .5px rgba(0, 0, 0, .05); }
+
+dialog.prefs { width: min(620px, calc(100vw - 24px)); height: min(680px, calc(100vh - 24px)); }
+dialog.prefs .dbody { background: var(--window-bg); }

@@ -1,0 +1,63 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>vfs in the browser</title>
+<pre id="out">running…</pre>
+<script type="module">
+import { Vfs, openIdb } from '../../src/platform/vfs.js';
+import { Changed } from '../../src/core/errors.js';
+
+const out = document.getElementById('out');
+const lines = [];
+let failed = 0;
+const ok = (cond, msg) => { lines.push((cond ? 'ok   ' : 'FAIL ') + msg); if (!cond) failed++; };
+const text = async b => new TextDecoder().decode(await b.arrayBuffer());
+const blob = s => new Blob([s]);
+
+try {
+  const name = 'inkpad-test-' + Math.random().toString(36).slice(2);
+  const v = new Vfs(await openIdb(name));
+  const s1 = await v.write('数学/代数/笔记.inkpad', blob('hello'), { id: 'abc', cover: blob('cv') });
+  ok((await text(await v.read('数学/代数/笔记.inkpad'))) === 'hello', 'write then read');
+  ok((await v.list('')).map(e => e.name + e.isDir).join() === '数学true', 'folders appear by themselves');
+  const st = await v.stat('数学/代数/笔记.inkpad');
+  ok(st.size === 5 && st.id === 'abc' && st.sign === s1 && (await text(st.cover)) === 'cv', 'stat carries size, id, cover and sign');
+  let threw = null;
+  try { await v.write('数学/代数/笔记.inkpad', blob('x'), { expect: 'nope' }); } catch (e) { threw = e; }
+  ok(threw instanceof Changed, 'write with a wrong expect throws Changed');
+  const s2 = await v.write('数学/代数/笔记.inkpad', blob('22'), { expect: s1 });
+  ok(s2 !== s1, 'write with the right expect works and changes the sign');
+  const racers = await Promise.allSettled([v.write('r', blob('0')).then(async sg => { return Promise.allSettled([v.write('r', blob('A'), { expect: sg }), v.write('r', blob('B'), { expect: sg })]); })]);
+  ok(racers[0].value.map(r => r.status).sort().join() === 'fulfilled,rejected', 'two writers racing on one sign: exactly one wins');
+  await v.move('数学', '移动后');
+  ok((await v.walk('')).files.map(f => f.path).includes('移动后/代数/笔记.inkpad') && !(await v.exists('数学')), 'a folder moves with everything in it');
+  ok((await v.stat('移动后/代数/笔记.inkpad')).sign === s2, 'a move keeps the sign');
+  await v.remove('移动后');
+  ok(!(await v.exists('移动后/代数')), 'remove a tree');
+  await v.kvSet('settings', { a: [1, 2], b: 'ü' });
+  ok(JSON.stringify(await v.kvGet('settings')) === '{"a":[1,2],"b":"ü"}', 'kv round trip');
+
+  // M0 trial 4: a 200 MB Blob survives a reload of the database and can be sliced cheaply.
+  const big = new Blob([new Uint8Array(50 * 1024 * 1024), new Uint8Array(50 * 1024 * 1024), new Uint8Array(50 * 1024 * 1024), (() => { const t = new Uint8Array(50 * 1024 * 1024); t.fill(7, t.length - 65536); return t; })()]);
+  const t0 = performance.now();
+  await v.write('big.bin', big);
+  const t1 = performance.now();
+  const v2 = new Vfs(await openIdb(name));            // reopened: nothing cached in memory
+  const heapBefore = performance.memory ? performance.memory.usedJSHeapSize : 0;
+  const rec = await v2.readFile('big.bin');
+  const tail = new Uint8Array(await rec.blob.slice(rec.blob.size - 65536).arrayBuffer());
+  const t2 = performance.now();
+  ok(rec.blob.size === 200 * 1024 * 1024, 'the 200 MB blob is back with its size');
+  ok(tail.every(x => x === 7), 'the last 64 KB read back right');
+  lines.push(`info write 200 MB: ${(t1 - t0).toFixed(0)} ms; reopen + read tail 64 KB: ${(t2 - t1).toFixed(0)} ms`);
+  if (performance.memory) lines.push(`info JS heap change: ${((performance.memory.usedJSHeapSize - heapBefore) / 1048576).toFixed(1)} MB`);
+  if (navigator.storage?.estimate) { const e = await navigator.storage.estimate(); lines.push(`info storage usage ${(e.usage / 1048576).toFixed(0)} MB of ${(e.quota / 1048576).toFixed(0)} MB`); }
+  await v2.remove('big.bin');
+  indexedDB.deleteDatabase(name);
+} catch (e) {
+  lines.push('ERROR ' + (e && e.stack || e));
+  failed++;
+}
+lines.push(failed ? `FAILED ${failed}` : 'ALL PASSED');
+out.textContent = lines.join('\n');
+document.title = failed ? 'FAILED' : 'PASSED';
+</script>

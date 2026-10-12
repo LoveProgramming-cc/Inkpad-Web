@@ -1,0 +1,67 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>components</title>
+<link rel="stylesheet" href="../../css/tokens.css">
+<link rel="stylesheet" href="../../css/base.css">
+<link rel="stylesheet" href="../../css/controls.css">
+<link rel="stylesheet" href="../../css/dialogs.css">
+<style>
+  body { overflow: auto; padding: 16px; }
+  .icons { display: grid; grid-template-columns: repeat(auto-fill, 74px); gap: 8px; }
+  .icons div { text-align: center; font-size: 10px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  h2 { margin: 24px 0 8px; font-size: 14px; }
+</style>
+<div id="app"></div>
+<script type="module">
+import { h, icon, glyph } from '../../src/ui/ui.js';
+import { ICON_NAMES, GLYPH_NAMES, weightIcon, dotIcon, letterIcon, lineStyleIcon, swatchIcon, wheelIcon, folderIcon } from '../../src/core/icons.js';
+import { openPopover, menuPopover } from '../../src/ui/popover.js';
+import { alertDialog, confirm, askText, showDialog } from '../../src/ui/dialog.js';
+import { toast } from '../../src/ui/toast.js';
+import { switchEl, segmented, slider, select, group, actionRow, switchRow, expanderRow, iconButton } from '../../src/ui/controls.js';
+import { COVER_COLORS } from '../../src/core/page.js';
+import { fmtDate, useLanguage, tr } from '../../src/core/i18n.js';
+
+const app = document.getElementById('app');
+const sec = t => { const d = h('div'); app.append(h('h2', null, t), d); return d; };
+const theme = new URLSearchParams(location.search).get('theme');
+if (theme) document.documentElement.dataset.theme = theme;
+await useLanguage(new URLSearchParams(location.search).get('lang') || 'zh');
+
+app.append(h('div', { class: 'row' }, h('b', null, 'theme'), segmented([{ label: 'system', value: '' }, { label: 'light', value: 'light' }, { label: 'dark', value: 'dark' }], theme || '', v => { if (v) document.documentElement.dataset.theme = v; else delete document.documentElement.dataset.theme; }),
+  h('span', null, tr('撤销') + ' / ' + fmtDate(tr('%Y年%-m月%-d日 %H:%M'), Date.now() / 1000))));
+
+sec(`${ICON_NAMES.length} icons`).append(h('div', { class: 'icons' }, ICON_NAMES.map(n => h('div', null, icon(n, 24), n))));
+sec(`${GLYPH_NAMES.length} folder glyphs`).append(h('div', { class: 'icons' }, GLYPH_NAMES.map(n => h('div', null, glyph(n, 28), n))));
+sec('drawn icons').append(h('div', { class: 'row' },
+  [0.9, 1.6, 2.8, 4].map(w => weightIcon(w)), [3, 5, 7].map(r => dotIcon(r)), [0.7, 1, 1.4].map(s => letterIcon(s)), [0, 1, 2].map(d => lineStyleIcon(d)),
+  COVER_COLORS.map(c => swatchIcon(c)), swatchIcon(COVER_COLORS[2], true), swatchIcon([1, 1, 1], true), wheelIcon(28), folderIcon(28)));
+
+const c = sec('controls');
+c.append(h('div', { class: 'row', style: { flexWrap: 'wrap' } },
+  h('button', null, 'Button'), h('button', { class: 'suggested' }, 'Suggested'), h('button', { class: 'danger' }, 'Danger'), h('button', { disabled: true }, 'Disabled'), h('button', { class: 'flat' }, 'Flat'),
+  h('button', { class: 'pill-btn suggested' }, 'Pill'), iconButton('settings', { title: 'settings' }), iconButton('star', { pressed: true }),
+  switchEl(true), switchEl(false), h('input', { type: 'text', placeholder: 'text field' }), h('input', { type: 'search', class: 'round', placeholder: 'search' }),
+  select([{ label: 'One', value: 1 }, { label: 'Two', value: 2 }], 1, () => {}), h('input', { type: 'number', value: 5, style: { width: '70px' } }), slider({ min: 0, max: 10, value: 4 }),
+  segmented([{ label: 'A', value: 'a' }, { label: 'B', value: 'b' }, { label: 'C', value: 'c' }], 'b', () => {}),
+  h('div', { class: 'progress', style: { width: '160px' } }, h('i', { style: { width: '60%' } })), h('span', { class: 'spin' }, icon('syncing'))));
+c.append(h('div', { style: { maxWidth: '520px', marginTop: '14px' } },
+  group('Group title', 'A short description of the group.', actionRow('Row title', 'subtitle text', h('button', null, 'Action')), switchRow('Switch row', null, true, () => {}),
+    expanderRow('Expander row', 'opens', actionRow('Inside', null, h('input', { type: 'text', placeholder: 'client id' }))))));
+
+const p = sec('popovers, dialogs, toasts');
+const btn = (label, fn) => h('button', { onClick: fn, style: { margin: '4px' } }, label);
+p.append(
+  btn('menu', e => menuPopover(e.currentTarget, [{ label: 'Rename…', fn() {}, icon: 'rename' }, { label: 'Copy', fn() {}, icon: 'copy' }, null, { label: 'Move to trash', fn() {}, icon: 'trash', danger: true }])),
+  btn('popover (flips at the edge)', e => openPopover(h('div', { class: 'col', style: { width: '240px' } }, h('h4', null, 'A panel'), slider({ min: 0, max: 100, value: 40 }), h('div', { class: 'row' }, h('button', { class: 'choice', 'aria-pressed': 'true' }, 'One'), h('button', { class: 'choice' }, 'Two')))
+    , { anchor: e.currentTarget, side: 'auto' })),
+  btn('tall popover (scrolls)', e => openPopover(h('div', { class: 'col' }, Array.from({ length: 60 }, (_, i) => h('div', null, 'row ' + i))), { anchor: e.currentTarget, side: 'bottom' })),
+  btn('alert', () => alertDialog('Delete forever?', 'This cannot be undone.', [{ label: 'Cancel', value: 0 }, { label: 'Delete', value: 1, kind: 'danger' }])),
+  btn('confirm', async () => toast('answer: ' + await confirm('Sure?', 'Really.'))),
+  btn('ask text', async () => toast('answer: ' + await askText('Rename', { value: 'Notes' }))),
+  btn('dialog', () => showDialog({ title: 'Settings', width: '620px', closeButton: true, build: () => group('One', null, actionRow('Row', null, h('button', null, 'x'))) })),
+  btn('toast', () => toast('Page deleted', { action: { label: 'Undo', fn() { toast('undone'); } } })),
+);
+document.title = 'READY';
+</script>

@@ -1,0 +1,77 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>pdf round trip</title>
+<pre id="out">running…</pre>
+<script type="module">
+import { Document } from '../../src/core/document.js';
+import { PdfDoc } from '../../src/core/pdfdoc.js';
+import { Text, Stroke, Shape } from '../../src/core/items.js';
+import { buildPdf } from '../../src/io/exportpdf.js';
+
+const lines = [];
+let failed = 0;
+const ok = (cond, msg) => { lines.push((cond ? 'ok   ' : 'FAIL ') + msg); if (!cond) failed++; };
+try {
+  // a two-page PDF with real text, made with pdf-lib
+  const { PDFDocument, StandardFonts, rgb } = await import('../../src/vendor/pdf-lib/pdf-lib.esm.min.js');
+  const src = await PDFDocument.create();
+  const helv = await src.embedFont(StandardFonts.Helvetica);
+  for (const t of ['First page background text', 'Second page']) {
+    const p = src.addPage([300, 400]);
+    p.drawText(t, { x: 20, y: 360, size: 16, font: helv });
+    p.drawRectangle({ x: 20, y: 200, width: 100, height: 60, color: rgb(0.9, 0.2, 0.2) });
+  }
+  const srcBytes = await src.save();
+  const srcBlob = new Blob([srcBytes], { type: 'application/pdf' });
+
+  // pdf.js: opens it, sizes, finds text, renders
+  const pdf = await PdfDoc.fromBlob(srcBlob);
+  ok((await pdf.nPages()) === 2, 'pdf.js opens it: 2 pages');
+  const [w, h] = await pdf.pageSize(0);
+  ok(w === 300 && h === 400, 'page size 300 x 400');
+  const hits = await pdf.find(0, 'background');
+  ok(hits.length === 1 && hits[0][1] < 60 && hits[0][0] > 15, 'finds "background" near the top left: ' + JSON.stringify(hits[0]?.map(Math.round)));
+  const doc = await Document.fromPdf(srcBlob);
+  ok(doc.pages.length === 2 && doc.pages[0].w === 300, 'Document.fromPdf makes a page per PDF page');
+  ok(doc.pages[0].pdf === doc.pages[1].pdf, 'sharing one PdfDoc');
+
+  // annotate
+  const font = new Blob([await (await fetch('./_font.ttf')).arrayBuffer()]);
+  doc.addItems(doc.pages[0], [new Text(30, 100, '你好 Hello 世界 wrapped text goes on and on', 14, [0.1, 0.1, 0.6], 200, null),
+    new Text(30, 160, 'note', 13, [0.16, 0.15, 0.12], 120, [1, 0.93, 0.55]),
+    new Stroke('fountain', [1, 0, 0], 2, Array.from({ length: 40 }, (_, i) => [20 + i * 6, 300 + Math.sin(i / 4) * 20, 0.2 + 0.7 * Math.abs(Math.sin(i / 7))]), 1.2),
+    new Stroke('hl', [1, 0.88, 0.3], 14, [[20, 250, 0.5], [200, 250, 0.5]]), new Shape('ellipse', 150, 120, 250, 190, [0, 0.5, 0], 2)]);
+  const t0 = performance.now();
+  const r = await buildPdf(doc, { font: { name: 'Arial Unicode', blob: font } });
+  lines.push(`info exported ${(r.blob.size / 1024).toFixed(0)} KB in ${(performance.now() - t0).toFixed(0)} ms; missing glyphs: ${r.missing.length}; raster pages: ${r.rasterPages}`);
+  ok(r.blob.size > 1000 && r.blob.size < 6 * 1024 * 1024, 'the file is small: the font is a subset, not all 23 MB');
+  ok(r.missing.length === 0, 'the font has every character');
+
+  // read the export back with pdf.js
+  const back = await PdfDoc.fromBlob(r.blob);
+  ok((await back.nPages()) === 2, 'the export has 2 pages');
+  const text0 = await (await back._page(0)).getTextContent();
+  const all0 = text0.items.map(i => i.str).join(' ');
+  ok(all0.includes('First page background text'), 'the original page text is still real text: ' + all0.slice(0, 80));
+  ok(/Hello/.test(all0) && all0.includes('你好'), 'the annotation text is real, searchable text: ' + all0.slice(-70));
+  const found = await back.find(0, '世界');
+  ok(found.length >= 1, 'search finds 世界 in the export');
+  // look at it
+  const canvas = document.createElement('canvas');
+  canvas.width = 600; canvas.height = 800;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, 600, 800);
+  const task = await back.render(0, ctx, [2, 0, 0, 2, 0, 0]);
+  await task.promise;
+  canvas.style.border = '1px solid #888';
+  document.body.append(canvas);
+  const pixels = ctx.getImageData(0, 0, 600, 800).data;
+  let ink = 0; for (let i = 0; i < pixels.length; i += 4) if (pixels[i] < 200 || pixels[i + 1] < 200) ink++;
+  ok(ink > 2000, 'the page renders with ink on it (' + ink + ' dark pixels)');
+} catch (e) {
+  lines.push('ERROR ' + (e && e.stack || e)); failed++;
+}
+lines.push(failed ? 'FAILED ' + failed : 'ALL PASSED');
+document.getElementById('out').textContent = lines.join('\n');
+document.title = failed ? 'FAILED' : 'PASSED';
+</script>

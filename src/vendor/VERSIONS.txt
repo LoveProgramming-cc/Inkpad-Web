@@ -1,0 +1,4 @@
+pdfjs-dist 4.10.38 (Apache-2.0) build/pdf.min.mjs, build/pdf.worker.min.mjs, cmaps, standard_fonts
+pdf-lib 1.17.1 (MIT) dist/pdf-lib.esm.min.js
+@pdf-lib/fontkit 1.1.1 (MIT) dist/fontkit.umd.min.js
+Obtained with: npm pack <package>@<version>

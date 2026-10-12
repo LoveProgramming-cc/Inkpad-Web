@@ -1,0 +1,90 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>render gallery</title>
+<style>
+  body { font: 13px system-ui; margin: 12px; background: #888; color: #111; }
+  h2 { margin: 18px 0 6px; color: #fff; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; }
+  .cell { background: #ccc; padding: 4px; border-radius: 4px; }
+  .cell div { font-size: 11px; text-align: center; margin-top: 2px; }
+  canvas { display: block; }
+</style>
+<div id="root"></div>
+<script type="module">
+import { Page, COVER_STYLES, COVER_COLORS } from '../../src/core/page.js';
+import { Stroke, Shape, Text, Image } from '../../src/core/items.js';
+import { pageSurface, renderCover, installCoverRenderer } from '../../src/core/render.js';
+import { ensureBitmaps } from '../../src/platform/image.js';
+import { Document } from '../../src/core/document.js';
+
+const root = document.getElementById('root');
+function section(title) { const h = document.createElement('h2'); h.textContent = title; root.append(h); const r = document.createElement('div'); r.className = 'row'; root.append(r); return r; }
+function add(row, canvas, label, scale = 1) {
+  const c = document.createElement('div'); c.className = 'cell';
+  const v = document.createElement('canvas'); v.width = canvas.width; v.height = canvas.height; v.style.width = canvas.width * scale + 'px'; v.style.height = canvas.height * scale + 'px';
+  v.getContext('2d').drawImage(canvas, 0, 0);
+  const l = document.createElement('div'); l.textContent = label;
+  c.append(v, l); row.append(c);
+}
+const papers = ['blank', 'dots', 'ruled', 'wide', 'grid', 'cornell', 'legal', 'col2', 'col3', 'todo', 'weekly', 'staff', 'go'];
+const colors = { white: [1, 1, 1], yellow: [0.976, 0.965, 0.902], dark: [0.13, 0.13, 0.15] };
+const errors = [];
+try {
+  for (const [cn, color] of Object.entries(colors)) {
+    const row = section('paper: ' + cn);
+    for (const paper of papers) add(row, pageSurface(new Page({ paper, color }), 0.32), paper);
+  }
+
+  const row2 = section('covers');
+  for (const style of COVER_STYLES) for (const ci of [0, 1, 6]) add(row2, renderCover([style, COVER_COLORS[ci]], '数学笔记 Algebra'), style + ' ' + ci);
+
+  // every pen, with pressure, dashes, on light and dark paper
+  const row3 = section('ink');
+  for (const color of [colors.white, colors.dark]) {
+    const page = new Page({ w: 300, h: 330, paper: 'ruled', color });
+    const ink = color === colors.dark ? [1, 1, 1] : [0, 0, 0];
+    const wave = (y0, tool, w, dash = 0, sens = 1) => new Stroke(tool, tool === 'hl' ? [1, 0.88, 0.3] : tool === 'tape' ? [0.96, 0.82, 0.36] : ink, w,
+      Array.from({ length: 60 }, (_, i) => [20 + i * 4.3, y0 + Math.sin(i / 6) * 12, 0.2 + 0.8 * Math.abs(Math.sin(i / 9))]), sens, dash);
+    page.items = [wave(30, 'fountain', 2.8), wave(65, 'ball', 1.6), wave(100, 'brush', 3.8), wave(135, 'ball', 2, 1), wave(165, 'ball', 2.4, 2), wave(205, 'hl', 16),
+      new Shape('arrow', 20, 235, 120, 285, [0.9, 0.2, 0.2], 2), new Shape('rect', 140, 235, 200, 285, [0.2, 0.5, 0.9], 2), new Shape('ellipse', 215, 235, 280, 285, [0.2, 0.7, 0.3], 2),
+      new Text(20, 295, '文本 Text 你好 wrap check wrap check', 14, ink, 260),
+      new Text(150, 20, 'sticky note', 13, [0.16, 0.15, 0.12], 120, [1, 0.93, 0.55])];
+    add(row3, pageSurface(page, 2), color === colors.dark ? 'dark paper' : 'white paper');
+  }
+
+  // a stroke on top of tape, tape lifted and not
+  const tp = new Page({ w: 200, h: 100, paper: 'blank' });
+  tp.items = [new Text(20, 20, 'covered text', 20, [0, 0, 0], 0), new Stroke('tape', [0.96, 0.82, 0.36], 24, [[10, 28, 0.5], [190, 28, 0.5]]), new Text(20, 60, 'lifted tape', 20, [0, 0, 0], 0), (() => { const t = new Stroke('tape', [0.96, 0.82, 0.36], 24, [[10, 68, 0.5], [190, 68, 0.5]]); t.open = true; return t; })()];
+  add(row3, pageSurface(tp, 2), 'tape');
+
+  // a picture
+  const row4 = section('picture and board');
+  const c = document.createElement('canvas'); c.width = 80; c.height = 60; const cx = c.getContext('2d'); cx.fillStyle = '#c33'; cx.fillRect(0, 0, 80, 60); cx.fillStyle = '#fff'; cx.fillRect(10, 10, 30, 30);
+  const png = await new Promise(r => c.toBlob(r, 'image/png'));
+  const pp = new Page({ w: 200, h: 120, paper: 'grid' });
+  pp.items = [new Image(20, 20, 80, 60, png)];
+  await ensureBitmaps(pp.items);
+  add(row4, pageSurface(pp, 2), 'image');
+
+  // a whiteboard at 5e7: the dot pattern must be even and the strokes steady
+  const board = new Page({ w: 1e8, h: 1e8, paper: 'dots', board: true });
+  const cx0 = 5e7 + 0.37, cy0 = 5e7 + 12.1;
+  board.items = [new Stroke('fountain', [0, 0, 0], 2.4, Array.from({ length: 80 }, (_, i) => [cx0 + i * 3, cy0 + Math.sin(i / 7) * 30, 0.3 + 0.6 * Math.abs(Math.sin(i / 10))])),
+    new Text(cx0, cy0 + 50, 'board at 5e7', 18, [0, 0, 0], 0), new Shape('ellipse', cx0 + 20, cy0 - 60, cx0 + 120, cy0 - 20, [0.8, 0.2, 0.2], 2)];
+  add(row4, pageSurface(board, 2), 'whiteboard at 5e7');
+  // ...and the same strokes near the origin for comparison
+  const near = new Page({ w: 1e8, h: 1e8, paper: 'dots', board: true });
+  near.items = board.items.map(it => it.transformed(1, 0, 0, -5e7, -5e7));
+  add(row4, pageSurface(near, 2), 'same board near 0');
+
+  // a notebook's first page as cover, through the document
+  installCoverRenderer();
+  const doc = new Document({ w: 595, h: 842, paper: 'grid', color: colors.yellow });
+  doc.addItems(doc.pages[0], [new Text(60, 80, 'First page', 40, [0, 0, 0], 0), new Shape('ellipse', 60, 160, 300, 300, [0.8, 0.2, 0.2], 3)]);
+  const coverPng = await doc.cover();
+  const bmp = await createImageBitmap(coverPng);
+  const cc = document.createElement('canvas'); cc.width = bmp.width; cc.height = bmp.height; cc.getContext('2d').drawImage(bmp, 0, 0);
+  add(row4, cc, 'first page as cover');
+} catch (e) { errors.push(String(e && e.stack || e)); }
+if (errors.length) { const pre = document.createElement('pre'); pre.textContent = errors.join('\n'); pre.style.color = 'red'; root.prepend(pre); document.title = 'FAILED'; } else document.title = 'DONE';
+</script>
