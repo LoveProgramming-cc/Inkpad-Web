@@ -116,8 +116,9 @@ const MIN_TURNING = 3.75 * Math.PI;        // a scribble goes round twice, or to
 const MIN_TURNING_PER_CELL = 3.5 * Math.PI; // and turns this much for every stroke-height it travels
 const MIN_SWEEPS = 4.0;                   // or its path is this many times as long as it is wide and tall
 
-/** True when a stroke looks like a quick back-and-forth scratch-out. @param {Pt[]} pts */
-export function isScribble(pts) {
+/** True when a stroke looks like a quick back-and-forth scratch-out. `loose`: decide as A and B do,
+ * by the reversals alone (the setting "loose scribble to erase"). @param {Pt[]} pts @param {boolean} [loose] */
+export function isScribble(pts, loose = false) {
   const n = pts.length;
   if (n < 10) return false;
   let mx = 0, my = 0;
@@ -164,6 +165,7 @@ export function isScribble(pts) {
     }
   }
   if (reversals < MIN_REVERSALS) return false;
+  if (loose) return true;
   // How much the pen turns, against how far the stroke travels. Writing turns a lot too (a cursive
   // "tro" goes round more than twice) but moves on as it does, about a letter for every turn or
   // two; a scratch-out turns over and over in the same place. The travel is counted in cells as

@@ -200,7 +200,7 @@ export class Editor {
     c.eraseFilter = new Set(st.erase_filter);
     c.lassoRect = st.lasso_rect; c.lassoFilter = new Set(st.lasso_filter);
     c.shapeKind = st.shape_kind; c.textSize = TEXT_SIZES[st.text_size];
-    c.scribbleErase = st.scribble_erase; c.fingerDraw = st.finger_draw;
+    c.scribbleErase = st.scribble_erase; c.scribbleLoose = !!st.scribble_loose; c.fingerDraw = st.finger_draw;
     c.palmMs = st.palm_ms ?? 80;
     c.inputLog = st.input_log ? (/** @type {string} */ line) => this.app.logInput?.(line) : null;
     c.noteColor = NOTE_COLORS[(st.note_color || 0) % NOTE_COLORS.length];

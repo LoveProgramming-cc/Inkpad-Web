@@ -97,6 +97,7 @@ export class PageCanvas {
     this.shapeKind = 'line';
     this.textSize = 18.0;
     this.scribbleErase = true;
+    this.scribbleLoose = false;
     this.fingerDraw = false;
     /** @type {((n: number) => void)|null} */ this.onScribble = null;
     this.penSens = 1.0;            // pressure sensitivity factor

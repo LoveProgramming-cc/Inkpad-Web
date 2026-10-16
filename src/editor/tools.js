@@ -543,7 +543,7 @@ const methods = {
         item.pts.push([px, py, item.pts[item.pts.length - 1][2]]);
       }
       item.updateBbox();
-      if (item.tool !== 'hl' && item.tool !== 'tape' && !fixed && !op.rule && cv.scribbleErase && geom.isScribble(item.pts)) {
+      if (item.tool !== 'hl' && item.tool !== 'tape' && !fixed && !op.rule && cv.scribbleErase && geom.isScribble(item.pts, cv.scribbleLoose)) {
         const targets = geom.scribbleTargets(item.pts, page.items);
         if (targets.length) {
           // Scribble to erase, recorded as two steps: the scribble as ordinary ink, then the erasure.

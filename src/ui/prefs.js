@@ -46,6 +46,7 @@ export async function openPrefs(app, section) {
   // -- writing
   const writing = group(tr('书写'), null,
     switchRow(tr('涂画以擦除'), null, st.scribble_erase, v => set('scribble_erase', v)),
+    switchRow(tr('宽松的涂抹删除'), tr('来回涂几下就擦除；连笔写字时也更容易误擦'), st.scribble_loose, v => set('scribble_loose', v)),
     switchRow(tr('长按绘制规则形状'), tr('画完停住片刻，笔迹变成直线、矩形或椭圆'), st.hold_shape, v => set('hold_shape', v)),
     switchRow(tr('用手指书写'), tr('打开后单指书写，双指滚动和缩放'), st.finger_draw, v => set('finger_draw', v)),
     switchRow(tr('显示十字光标'), null, st.crosshair, v => set('crosshair', v)),

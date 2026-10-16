@@ -15,7 +15,7 @@ test('recognizeShape', () => {
 });
 
 test('isScribble', () => {
-  for (const [i, c] of F.scribbles.entries()) assert.equal(g.isScribble(c.pts), c.is, 'scribble ' + i);
+  for (const [i, c] of F.scribbles.entries()) assert.equal(g.isScribble(c.pts, true), c.is, 'scribble ' + i);   // loose: exactly B's rule
   assert.ok(F.scribbles.some(c => c.is) && F.scribbles.some(c => !c.is));
 });
 
@@ -37,6 +37,9 @@ test('isScribble tells handwriting from a scratch-out by how much it turns as it
   assert.equal(g.isScribble(zigzag(6, 80, 20)), true);
   assert.equal(g.isScribble(zigzag(7, 120, 30)), true);
   assert.equal(g.isScribble(zigzag(13, 100, 12)), true);
+  // Four passes, three reversals: enough for the loose rule (A and B), not for the strict one.
+  assert.equal(g.isScribble(zigzag(5, 60, 40)), false);
+  assert.equal(g.isScribble(zigzag(5, 60, 40), true), true);
 });
 
 test('scribbleTargets, lassoPick, rectPick pick the same items as B', () => {

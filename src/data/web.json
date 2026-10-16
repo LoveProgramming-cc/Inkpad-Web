@@ -78,7 +78,9 @@
   "离线使用": "Offline use",
   "只在 https 网址下可用": "Only available at an https address",
   "已就绪：没有网络也能打开和书写": "Ready: opens and writes without a network",
-  "正在准备，下次打开时可用": "Being prepared; available the next time it is opened"
+  "正在准备，下次打开时可用": "Being prepared; available the next time it is opened",
+  "宽松的涂抹删除": "Loose scribble to erase",
+  "来回涂几下就擦除；连笔写字时也更容易误擦": "A few strokes back and forth erase; joined-up writing is erased by mistake more easily"
  },
  "ja": {
   "Google Drive 没有给出上传地址": "Google Drive がアップロード先のアドレスを返しませんでした",
@@ -164,6 +166,8 @@
   "离线使用": "オフラインで使う",
   "只在 https 网址下可用": "https のアドレスでのみ利用できます",
   "已就绪：没有网络也能打开和书写": "準備完了：ネットワークがなくても開いて書けます",
-  "正在准备，下次打开时可用": "準備中です。次に開いたときから使えます"
+  "正在准备，下次打开时可用": "準備中です。次に開いたときから使えます",
+  "宽松的涂抹删除": "ゆるい判定で塗りつぶして消去",
+  "来回涂几下就擦除；连笔写字时也更容易误擦": "数回往復するだけで消去します。続け字も誤って消えやすくなります"
  }
 }
