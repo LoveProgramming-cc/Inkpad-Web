@@ -19,6 +19,26 @@ test('isScribble', () => {
   assert.ok(F.scribbles.some(c => c.is) && F.scribbles.some(c => !c.is));
 });
 
+test('isScribble tells handwriting from a scratch-out by how much it turns as it travels', () => {
+  const along = (/** @type {number[][]} */ p) => p.flatMap((q, i) => i === 0 ? [q] : Array.from({ length: 8 }, (_, k) => [p[i - 1][0] + (q[0] - p[i - 1][0]) * (k + 1) / 8, p[i - 1][1] + (q[1] - p[i - 1][1]) * (k + 1) / 8, 0.5]));
+  // Cursive loops, a letter 15 tall every 12 to 14 across: writing, however long.
+  const cursive = (/** @type {number} */ loops, /** @type {number} */ adv) => {
+    const p = [];
+    for (let t = 0; t <= loops * 2 * Math.PI; t += 0.15) p.push([100 + adv * t / (2 * Math.PI) - 6.75 * Math.sin(t), 100 - 7.5 * Math.cos(t), 0.5]);
+    return p;
+  };
+  assert.equal(g.isScribble(cursive(3, 14)), false);
+  assert.equal(g.isScribble(cursive(8, 12)), false);
+  // Going round in one place, or to and fro over a word: scribbles.
+  const circles = [];
+  for (let t = 0; t <= 2.5 * 2 * Math.PI; t += 0.2) circles.push([100 + 12 * Math.cos(t) + t * 0.6, 100 + 12 * Math.sin(t), 0.5]);
+  assert.equal(g.isScribble(circles), true);
+  const zigzag = (/** @type {number} */ n, /** @type {number} */ w, /** @type {number} */ h) => along(Array.from({ length: n }, (_, i) => [100 + (i % 2) * w, 100 + i * h / n, 0.5]));
+  assert.equal(g.isScribble(zigzag(6, 80, 20)), true);
+  assert.equal(g.isScribble(zigzag(7, 120, 30)), true);
+  assert.equal(g.isScribble(zigzag(13, 100, 12)), true);
+});
+
 test('scribbleTargets, lassoPick, rectPick pick the same items as B', () => {
   for (const [i, c] of F.scribble_targets.entries()) {
     assert.deepEqual(g.scribbleTargets(c.pts, items).map(it => items.indexOf(it)), c.hits, 'scribble target ' + i);

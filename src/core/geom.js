@@ -112,6 +112,9 @@ export function segsCross(a, b, c, d) {
 
 const MIN_REVERSALS = 3;       // a scribble is at least four back-and-forth passes
 const MIN_LENGTH_RATIO = 2.5;  // path length relative to its extent along the main axis
+const MIN_TURNING = 3.75 * Math.PI;        // a scribble goes round twice, or to and fro five times, however small
+const MIN_TURNING_PER_CELL = 3.5 * Math.PI; // and turns this much for every stroke-height it travels
+const MIN_SWEEPS = 4.0;                   // or its path is this many times as long as it is wide and tall
 
 /** True when a stroke looks like a quick back-and-forth scratch-out. @param {Pt[]} pts */
 export function isScribble(pts) {
@@ -160,7 +163,57 @@ export function isScribble(pts) {
       else if (v - ext >= h) { reversals++; direction = 1; ext = v; }
     }
   }
-  return reversals >= MIN_REVERSALS;
+  if (reversals < MIN_REVERSALS) return false;
+  // How much the pen turns, against how far the stroke travels. Writing turns a lot too (a cursive
+  // "tro" goes round more than twice) but moves on as it does, about a letter for every turn or
+  // two; a scratch-out turns over and over in the same place. The travel is counted in cells as
+  // wide as the stroke is tall, so a scribble over a short word and one over a long line are
+  // judged alike. (Not in A or B: there the reversals above decided alone, and handwriting that
+  // doubled back on itself was erased.)
+  let minT = Infinity, maxT = -Infinity;
+  for (const p of pts) {
+    const v = -(p[0] - mx) * uy + (p[1] - my) * ux;
+    if (v < minT) minT = v; if (v > maxT) maxT = v;
+  }
+  const height = Math.max(maxT - minT, extent * 0.15, 1.0);
+  const cells = Math.max(1, extent / height);
+  const turn = turning(pts, Math.max(extent * 0.03, 0.5));
+  if (turn < MIN_TURNING) return false;
+  // Going round in place, or sweeping to and fro over the same ground many times over.
+  return turn / cells >= MIN_TURNING_PER_CELL || length / (extent + height) >= MIN_SWEEPS;
+}
+
+/** The total turning of a path, in radians, measured along it at even steps so that the
+ * tremor of the hand does not count. @param {Pt[]} pts @param {number} step */
+export function turning(pts, step) {
+  /** @type {number[][]} */
+  const even = [pts[0]];
+  let left = step;
+  for (let i = 1; i < pts.length; i++) {
+    let [ax, ay] = pts[i - 1];
+    const [bx, by] = pts[i];
+    let seg = Math.hypot(bx - ax, by - ay);
+    while (seg >= left) {
+      const k = left / seg;
+      ax += (bx - ax) * k; ay += (by - ay) * k;
+      even.push([ax, ay]);
+      seg -= left;
+      left = step;
+    }
+    left -= seg;
+  }
+  let total = 0, prev = null;
+  for (let i = 1; i < even.length; i++) {
+    const a = Math.atan2(even[i][1] - even[i - 1][1], even[i][0] - even[i - 1][0]);
+    if (prev !== null) {
+      let d = a - prev;
+      while (d > Math.PI) d -= 2 * Math.PI;
+      while (d < -Math.PI) d += 2 * Math.PI;
+      total += Math.abs(d);
+    }
+    prev = a;
+  }
+  return total;
 }
 
 /** Items a scribble covers: mostly inside its hull, or crossed repeatedly. */
