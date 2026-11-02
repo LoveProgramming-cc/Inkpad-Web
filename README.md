@@ -68,6 +68,8 @@ GPL-3.0-or-later; see `LICENSE`. Third-party code is listed in `THIRD-PARTY-NOTI
 
 ## 实施状态与验证记录（给后续维护者）
 
+交接时的完整说明（目标、约定、历史、下一步）见 [HANDOFF.md](HANDOFF.md)。
+
 按 `docs/PORTING.md` 的里程碑，当前做到的和验证过的：
 
 | 里程碑 | 状态 | 怎么验证的 |
@@ -86,7 +88,7 @@ GPL-3.0-or-later; see `LICENSE`. Third-party code is listed in `THIRD-PARTY-NOTI
 
 ### 还没有做、需要真实环境的事
 
-1. **R1 的两个前提还没有验证**（需要用户在场，用真实 Google 账号）：① 同一 Cloud 项目里新建的“Web 应用”客户端能否看到桌面/iOS 客户端创建的文件；② `oauth2.googleapis.com/token` 是否允许跨域，可续传上传的 `Location` 响应头是否读得到。第一个不成立就只能在网页版之间同步（见 PORTING.md R1）。
+1. **R1 主要前提已由用户实测成立**（2026-10）：同一 Cloud 项目里的“Web 应用”客户端能看到其它设备同步的笔记，令牌接口可跨域。大文件（可续传上传）没有专门验证。
 2. `.otf`（CFF 轮廓）字体的子集嵌入没有测过，只测了 `.ttf`；`.ttc` 和可变字体会被拒绝。
 3. 真实笔/触屏/触控板的手感（R4）、各浏览器兼容性、性能走查（§11）、窄屏逐项走查、多标签页互斥的实测。
 4. PWA（可安装、离线缓存、更新提示）已实现，见上文“Installing and working offline”；iOS 上“添加到主屏幕”后的行为（独立窗口里的 Google 登录、存储是否与 Safari 分开）尚未在真机验证。
