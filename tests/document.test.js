@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, writeFileSync, readFileSync } from 'node:fs';
@@ -14,7 +15,7 @@ import { packPoints, unpackPoints } from '../src/core/pack.js';
 import { fixture, near, dumpDoc } from './helpers.js';
 
 const PNG = new Uint8Array(Buffer.from('89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d49444154789c6360f8cf5000000401010000d1b6f4c00000000049454e44ae426082', 'hex'));
-const here = new URL('.', import.meta.url).pathname;
+const here = fileURLToPath(new URL('.', import.meta.url));
 const fx = name => new Blob([readFileSync(join(here, 'fixtures', name))]);
 const black = [0, 0, 0];
 

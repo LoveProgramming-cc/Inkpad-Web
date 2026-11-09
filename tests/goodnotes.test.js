@@ -1,4 +1,5 @@
 // Goodnotes: what we write we read back, and B's own reader reads it too (A:GoodnotesTests, tools/goodnotes_compat.py).
+import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
@@ -14,7 +15,7 @@ import { saveGoodnotes, loadGoodnotes } from '../src/io/goodnotes.js';
 import { ZipReader } from '../src/core/zip.js';
 
 globalThis.document ??= undefined;
-const here = new URL('.', import.meta.url).pathname;
+const here = fileURLToPath(new URL('.', import.meta.url));
 
 function sample() {
   const doc = new Document({ w: 595, h: 842, paper: 'grid', color: [1, 1, 1] });

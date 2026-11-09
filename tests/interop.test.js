@@ -1,6 +1,7 @@
 // The same cross-implementation test A runs (CompatTests.swift + tools/compat.py): this code and
 // B's own gdrive.sync() sync through one folder acting as the Drive. Skipped when B or Python
 // is not there.
+import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
@@ -16,7 +17,7 @@ import { sync, scan, config } from '../src/sync/sync.js';
 import { DirDrive } from './dirdrive.js';
 import { sampleDocument } from './helpers.js';
 
-const here = new URL('.', import.meta.url).pathname;
+const here = fileURLToPath(new URL('.', import.meta.url));
 const B = join(here, '..', 'ref', 'B'), COMPAT = join(here, '..', 'ref', 'A', 'tools', 'compat.py');
 const ready = existsSync(B) && existsSync(COMPAT);
 

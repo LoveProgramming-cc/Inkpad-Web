@@ -23,7 +23,7 @@ Any static file server will do; nothing is built.
 
 ```sh
 node tools/serve.mjs 8080      # then open http://localhost:8080/
-node --test tests/             # the tests
+node --test tests/*.test.js    # the tests
 ```
 
 Notebooks are kept in the browser (IndexedDB). Use cloud sync, or **Settings › Storage › Export**, to keep
@@ -57,7 +57,7 @@ file of the app, run
 
     node tools/build_sw.mjs
 
-before committing; `node --test tests/` fails while the list is out of date. A development
+before committing; `node --test tests/*.test.js` fails while the list is out of date. A development
 server over plain http (or on localhost) does not use the service worker.
 
 ## Licence
