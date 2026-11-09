@@ -110,7 +110,11 @@ export class LibraryView {
     this.empty = h('div', { class: 'statuspage', hidden: true });
     this.scroller = h('div', { class: 'grid-scroll scroll', onContextmenu: e => this._besideMenu(e) }, this.grid, this.band);
     this._wireBand();
-    const main = h('main', { class: 'library-main' }, top, this.crumbs, this.bar, this.selbar, this.scroller, this.empty);
+    // The bar at the top (search, title, buttons) is frosted glass over the notebooks, which
+    // scroll on under it (A: the system bar material): the grid is padded by its height.
+    this.head = h('div', { class: 'lib-head' }, top, this.crumbs, this.bar, this.selbar);
+    const main = h('main', { class: 'library-main' }, this.scroller, this.empty, this.head);
+    new ResizeObserver(() => main.style.setProperty('--head-h', this.head.offsetHeight + 'px')).observe(this.head);
     this.el = h('div', { class: 'library' }, side, main);
     this.io = new IntersectionObserver(items => {
       for (const it of items) if (it.isIntersecting) { this.io.unobserve(it.target); this._loadCover(/** @type {HTMLElement} */ (it.target)); }
