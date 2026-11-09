@@ -55,19 +55,20 @@ Inkpad 是用户本人做的手写笔记软件，原本有两个版本：
    - 导入凭据 JSON 后，客户端 ID、密钥和同步文件夹输入框现在会立即刷新。
 5. **PWA。** 应用清单 `manifest.webmanifest`、图标（取自 A）、离线缓存 `sw.js`、新版本提示、设置里的“应用”一栏，以及桌面 Chrome 安装后可以直接打开 `.pdf`、`.inkpad`、`.goodnotes` 文件。
 6. **涂画擦除。**
-   - 默认判定比 A、B 严格：除了折返次数，还要看这一笔转了多少、前进了多远，避免把连笔字（例如“tro”）当成涂画。
-   - 设置 → 书写里有“宽松的涂抹删除”开关，默认关闭；打开后完全使用 A、B 原来的判定。
+   - 一度用过网页版自己的一套判定（看转角总量）。2026-11 起改回与 A、B **完全相同**的规则（`B:geom.py` 的 `_scratched` 和 `_straight_passes` 逐行翻译），三端对同一笔的判定一致。
+   - 测试 `tests/geom.test.js` 用 A 的 55 个合成样本（`tests/fixtures/scribbles.json`，由 `A:InkpadTests/ScribbleSamples.swift` 转来，答案由 B 的代码给出）。改规则时三端一起改，样本也一起更新。
+   - 设置 → 书写里有“宽松的涂抹删除”开关，默认关闭；打开后使用旧规则（`B:geom.py` 的 `_loose`），文案与 A、B 相同。
 
 ## 四、现在的状态
 
-- 自动化测试共 87 项，全部通过（`node --test tests/`）。
+- 自动化测试共 87 项，全部通过（`node --test tests/*.test.js`；Node 24 起不能只写目录）。
 - 线上版本就是 `main` 的最新提交 `faa2706`。
 - 用户已在 iPad 上实际使用。Google 同步已连接，能读到其它设备的笔记。
 
 ## 五、还没做或没验证的事
 
 1. **iPad 上“添加到主屏幕”之后的行为**：独立窗口里的 Google 登录是否正常、存储是否与浏览器分开，都没有在真机上验证。更新提示和“用 Inkpad 打开文件”只写了代码，没有实际触发过。
-2. **新的涂画判定**：只用合成笔画验证过，要看用户的真实使用反馈。阈值在 `src/core/geom.js` 的 `MIN_TURNING`、`MIN_TURNING_PER_CELL`、`MIN_SWEEPS`。
+2. **涂画判定**：与 A、B 相同，只用合成笔画验证过。阈值在 `src/core/geom.js` 的 `MIN_REVERSALS`、`SPREAD_FREE`、`SPREAD_STEP`、`DENSE_RATIO`、`STRAIGHT_PASSES`，改动要与 A、B 同步。
 3. **笔的手感**：压感和笔速的新换算（`src/editor/input.js` 的 `_penPressure`）改完后，用户还没有给出反馈。
 4. **轻量的证据**：用户问过“如何证明足够轻量、达到原生水准”。我只给了加载数据（首屏 54 个请求、约 411 KB 未压缩、第二次打开全部来自缓存），没有书写延迟和帧率的实测。我提议过在编辑器里加一个延迟/帧率调试面板，用户还没回应。
 5. **`README.md` 里的旧清单**：末尾的“还没有做”清单有部分已经过时。其中第 1 条 R1 的主要前提已由用户实测成立：Web 客户端能看到其它设备的文件，令牌接口可以跨域。其余条目（`.otf` 字体、跨浏览器、窄屏走查、多标签页互斥、Goodnotes 导出）仍未验证。
@@ -94,7 +95,7 @@ git clone https://github.com/LoveProgramming-cc/Inkpad-gnome.git ref/B
 **每次改完代码后的固定步骤：**
 
 1. `node tools/build_sw.mjs`：重写离线缓存的文件清单和版本号。漏了这一步，用户拿不到新版本，测试也会失败。
-2. `node --test tests/`
+2. `node --test tests/*.test.js`
 3. 提交并推送到 `main`，提交信息末尾带上合著者署名。
 4. 用 `curl` 确认线上 `sw.js` 里的版本号已经更新。Pages 一般一两分钟生效。
 

@@ -43,7 +43,7 @@ export const DEFAULTS = {
   text_size: 1,
   hold_shape: true,
   scribble_erase: true,
-  scribble_loose: false,   // the reversal count of A and B alone decides (web only)
+  scribble_loose: false,   // the earlier rule (B:geom.py _loose), as in A and B
   finger_draw: false,
   template: { w: 595.0, h: 842.0, paper: 'blank', color: [1.0, 1.0, 1.0] },
   sort: 'date',

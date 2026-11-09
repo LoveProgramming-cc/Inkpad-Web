@@ -109,18 +109,34 @@ export function segsCross(a, b, c, d) {
 }
 
 // -- scribble to erase ------------------------------------------------------
+// B:geom.py is_scribble and its helpers, line by line; A:Model/Geom.swift is the same rule. The
+// three apps must judge a stroke alike (the samples in tests/fixtures/scribbles.json come from A).
 
 const MIN_REVERSALS = 3;       // a scribble is at least four back-and-forth passes
 const MIN_LENGTH_RATIO = 2.5;  // path length relative to its extent along the main axis
-const MIN_TURNING = 3.75 * Math.PI;        // a scribble goes round twice, or to and fro five times, however small
-const MIN_TURNING_PER_CELL = 3.5 * Math.PI; // and turns this much for every stroke-height it travels
-const MIN_SWEEPS = 4.0;                   // or its path is this many times as long as it is wide and tall
+const SPREAD_FREE = 0.3;       // a scribble this thin (width across / length along) needs no extra passes
+const SPREAD_STEP = 0.25;      // one more pass for each step wider than that
+const DENSE_RATIO = 7.0;       // path length relative to extent of a rub over one small spot
+const STRAIGHT_PASSES = 4;     // straight lines back and forth, each along the one before
 
-/** True when a stroke looks like a quick back-and-forth scratch-out. `loose`: decide as A and B do,
- * by the reversals alone (the setting "loose scribble to erase"). @param {Pt[]} pts @param {boolean} [loose] */
+/** True when a stroke looks like a quick back-and-forth scratch-out.
+ *
+ * Writing turns a lot too, so turning alone does not decide: a word written in one stroke goes
+ * round its letters. What a scratch-out does is go back over the same ground: each pass runs at
+ * least half the stroke's length, it turns about half a turn at each end and seldom in between,
+ * and the more room it spreads over the more passes it takes before it reads as a scribble. A rub
+ * that keeps circling one small spot counts as well, and so do straight lines drawn back and forth,
+ * each close along the one before, however far they reach. `loose` asks for the earlier rule (the
+ * setting "loose scribble to erase"). @param {Pt[]} pts @param {boolean} [loose] */
 export function isScribble(pts, loose = false) {
+  if (pts.length < 10) return false;
+  if (loose) return looseScribble(pts);
+  return scratched(pts) || straightPasses(pts);
+}
+
+/** The stroke's centre and main axis. @param {Pt[]} pts */
+function mainAxis(pts) {
   const n = pts.length;
-  if (n < 10) return false;
   let mx = 0, my = 0;
   for (const p of pts) { mx += p[0]; my += p[1]; }
   mx /= n; my /= n;
@@ -130,32 +146,33 @@ export function isScribble(pts, loose = false) {
     sxx += dx * dx; syy += dy * dy; sxy += dx * dy;
   }
   const ang = 0.5 * Math.atan2(2 * sxy, sxx - syy);
-  const ux = Math.cos(ang), uy = Math.sin(ang);
-  const t = pts.map(p => (p[0] - mx) * ux + (p[1] - my) * uy);
-  let tmax = -Infinity, tmin = Infinity;
-  for (const v of t) { if (v > tmax) tmax = v; if (v < tmin) tmin = v; }
-  const extent = tmax - tmin;
-  if (extent < 5.0) return false;
+  return { mx, my, ux: Math.cos(ang), uy: Math.sin(ang) };
+}
+
+/** @param {Pt[]} pts */
+function pathLength(pts) {
   let length = 0.0;
-  let a = pts[0];
-  for (let i = 1; i < n; i++) {
-    const b = pts[i];
-    length += Math.hypot(b[0] - a[0], b[1] - a[1]);
-    a = b;
-  }
-  if (length < MIN_LENGTH_RATIO * extent) return false;
-  // Direction reversals along the main axis, with hysteresis so jitter is ignored.
-  const h = Math.max(extent * 0.15, 1.5);
+  for (let i = 1; i < pts.length; i++) length += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+  return length;
+}
+
+/** @param {number[]} v */
+const spread = v => {
+  let lo = Infinity, hi = -Infinity;
+  for (const x of v) { if (x < lo) lo = x; if (x > hi) hi = x; }
+  return hi - lo;
+};
+
+/** Direction reversals along the main axis, each at least `h` from the one before.
+ * @param {number[]} t @param {number} h */
+function reversalsAlong(t, h) {
   let direction = 0;
   let ext = t[0];
   let reversals = 0;
   for (let i = 1; i < t.length; i++) {
     const v = t[i];
     if (direction === 0) {
-      if (Math.abs(v - ext) >= h) {
-        direction = v > ext ? 1 : -1;
-        ext = v;
-      }
+      if (Math.abs(v - ext) >= h) { direction = v > ext ? 1 : -1; ext = v; }
     } else if (direction === 1) {
       if (v > ext) ext = v;
       else if (ext - v >= h) { reversals++; direction = -1; ext = v; }
@@ -164,56 +181,121 @@ export function isScribble(pts, loose = false) {
       else if (v - ext >= h) { reversals++; direction = 1; ext = v; }
     }
   }
-  if (reversals < MIN_REVERSALS) return false;
-  if (loose) return true;
-  // How much the pen turns, against how far the stroke travels. Writing turns a lot too (a cursive
-  // "tro" goes round more than twice) but moves on as it does, about a letter for every turn or
-  // two; a scratch-out turns over and over in the same place. The travel is counted in cells as
-  // wide as the stroke is tall, so a scribble over a short word and one over a long line are
-  // judged alike. (Not in A or B: there the reversals above decided alone, and handwriting that
-  // doubled back on itself was erased.)
-  let minT = Infinity, maxT = -Infinity;
-  for (const p of pts) {
-    const v = -(p[0] - mx) * uy + (p[1] - my) * ux;
-    if (v < minT) minT = v; if (v > maxT) maxT = v;
-  }
-  const height = Math.max(maxT - minT, extent * 0.15, 1.0);
-  const cells = Math.max(1, extent / height);
-  const turn = turning(pts, Math.max(extent * 0.03, 0.5));
-  if (turn < MIN_TURNING) return false;
-  // Going round in place, or sweeping to and fro over the same ground many times over.
-  return turn / cells >= MIN_TURNING_PER_CELL || length / (extent + height) >= MIN_SWEEPS;
+  return reversals;
 }
 
-/** The total turning of a path, in radians, measured along it at even steps so that the
- * tremor of the hand does not count. @param {Pt[]} pts @param {number} step */
-export function turning(pts, step) {
-  /** @type {number[][]} */
-  const even = [pts[0]];
-  let left = step;
-  for (let i = 1; i < pts.length; i++) {
-    let [ax, ay] = pts[i - 1];
-    const [bx, by] = pts[i];
-    let seg = Math.hypot(bx - ax, by - ay);
-    while (seg >= left) {
-      const k = left / seg;
-      ax += (bx - ax) * k; ay += (by - ay) * k;
-      even.push([ax, ay]);
-      seg -= left;
-      left = step;
+/** The earlier rule, kept for those who want it: four passes back and forth along the main axis,
+ * each at least 15% of the stroke's length. It catches more, joined-up writing included. @param {Pt[]} pts */
+function looseScribble(pts) {
+  const { mx, my, ux, uy } = mainAxis(pts);
+  const t = pts.map(p => (p[0] - mx) * ux + (p[1] - my) * uy);
+  const extent = spread(t);
+  if (extent < 5.0) return false;
+  if (pathLength(pts) < MIN_LENGTH_RATIO * extent) return false;
+  return reversalsAlong(t, Math.max(extent * 0.15, 1.5)) >= MIN_REVERSALS;
+}
+
+/** @param {Pt[]} pts */
+function scratched(pts) {
+  const { mx, my, ux, uy } = mainAxis(pts);
+  const t = pts.map(p => (p[0] - mx) * ux + (p[1] - my) * uy);
+  const across = pts.map(p => (p[1] - my) * ux - (p[0] - mx) * uy);
+  const extent = spread(t);
+  if (extent < 5.0) return false;
+  const width = spread(across);
+  const length = pathLength(pts);
+  if (length < MIN_LENGTH_RATIO * extent) return false;
+  // Reversals each at least half the stroke's length away from the one before, so that what
+  // letters do inside a word is not counted.
+  const reversals = reversalsAlong(t, extent * 0.5);
+  if (reversals < MIN_REVERSALS) return false;
+  const turned = turning(pts, Math.max(Math.hypot(extent, width) / 40, 0.5));
+  if (length >= DENSE_RATIO * extent && turned >= 4 * Math.PI) return true;
+  if (turned - Math.PI * reversals > 2 * Math.PI) return false;   // it went round in loops besides: handwriting
+  const need = MIN_REVERSALS + Math.max(0, Math.ceil((width / extent - SPREAD_FREE) / SPREAD_STEP - 1e-9));
+  return reversals >= need;
+}
+
+/** Straight lines back and forth: each pass turns right round from the one before, runs close
+ * along it, and is about as long. Handwriting has strokes like that (an M, a W) but not four in a
+ * row lying on top of each other. @param {Pt[]} pts */
+function straightPasses(pts) {
+  const [legs, size] = legsOf(pts);
+  let run = 1;
+  for (let i = 0; i + 1 < legs.length; i++) {
+    const a = legs[i], b = legs[i + 1];
+    const la = Math.hypot(a[2] - a[0], a[3] - a[1]);
+    const lb = Math.hypot(b[2] - b[0], b[3] - b[1]);
+    const longer = Math.max(la, lb), shorter = Math.min(la, lb);
+    const back = ((a[2] - a[0]) * (b[2] - b[0]) + (a[3] - a[1]) * (b[3] - b[1])) / (la * lb) <= -0.966;   // 165° or more
+    // how far the middle of this pass is from the line of the one before
+    const mx = (b[0] + b[2]) / 2, my = (b[1] + b[3]) / 2;
+    const off = Math.abs((a[2] - a[0]) * (a[1] - my) - (a[0] - mx) * (a[3] - a[1])) / la;
+    if (back && off <= 0.08 * longer && shorter >= 0.4 * longer && shorter >= 0.2 * size) {
+      run++;
+      if (run >= STRAIGHT_PASSES) return true;
+    } else {
+      run = 1;
     }
-    left -= seg;
   }
-  let total = 0, prev = null;
-  for (let i = 1; i < even.length; i++) {
-    const a = Math.atan2(even[i][1] - even[i - 1][1], even[i][0] - even[i - 1][0]);
-    if (prev !== null) {
-      let d = a - prev;
-      while (d > Math.PI) d -= 2 * Math.PI;
-      while (d < -Math.PI) d += 2 * Math.PI;
-      total += Math.abs(d);
+  return false;
+}
+
+/** A stroke as the straight runs it is made of, [x0, y0, x1, y1] each, leaving out the short bits
+ * where it turns; and the size of the stroke. @param {Pt[]} pts @returns {[number[][], number]} */
+function legsOf(pts) {
+  const size = Math.hypot(spread(pts.map(p => p[0])), spread(pts.map(p => p[1])));
+  if (size < 5.0) return [[], size];
+  const step = size / 100;
+  const r = [pts[0]];
+  let run = 0.0;
+  for (let i = 1; i < pts.length; i++) {
+    run += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+    if (run >= step) { r.push(pts[i]); run = 0.0; }
+  }
+  if (r[r.length - 1] !== pts[pts.length - 1]) r.push(pts[pts.length - 1]);
+  // A run ends where the way on, a few steps ahead, leaves its direction by more than 45°.
+  /** @type {number[][]} */
+  const legs = [];
+  let start = 0;
+  for (let i = 1; i < r.length - 1; i++) {
+    const j = Math.min(i + 3, r.length - 1);
+    const lx = r[i][0] - r[start][0], ly = r[i][1] - r[start][1];
+    const nx = r[j][0] - r[i][0], ny = r[j][1] - r[i][1];
+    const a = Math.hypot(lx, ly), b = Math.hypot(nx, ny);
+    if (a > 1e-9 && b > 1e-9 && (lx * nx + ly * ny) / (a * b) < 0.7071) {
+      legs.push([r[start][0], r[start][1], r[i][0], r[i][1]]);
+      start = i;
     }
-    prev = a;
+  }
+  const last = r[r.length - 1];
+  legs.push([r[start][0], r[start][1], last[0], last[1]]);
+  const len = (/** @type {number[]} */ l) => Math.hypot(l[2] - l[0], l[3] - l[1]);
+  const longest = Math.max(...legs.map(len));
+  return [legs.filter(l => len(l) >= 0.15 * longest && longest > 0), size];
+}
+
+/** How far the direction of a stroke turns in all, left and right alike, measured on points about
+ * `step` apart so that the tremor of the hand does not add up. @param {Pt[]} pts @param {number} step */
+export function turning(pts, step) {
+  const kept = [pts[0]];
+  let run = 0.0;
+  for (let i = 1; i < pts.length; i++) {
+    run += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+    if (run >= step) { kept.push(pts[i]); run = 0.0; }
+  }
+  const full = 2 * Math.PI;
+  let total = 0.0;
+  /** @type {number|null} */
+  let prev = null;
+  for (let i = 1; i < kept.length; i++) {
+    const heading = Math.atan2(kept[i][1] - kept[i - 1][1], kept[i][0] - kept[i - 1][0]);
+    if (prev !== null) {
+      let d = (heading - prev + Math.PI) % full;   // Python's % is never negative
+      if (d < 0) d += full;
+      total += Math.abs(d - Math.PI);
+    }
+    prev = heading;
   }
   return total;
 }

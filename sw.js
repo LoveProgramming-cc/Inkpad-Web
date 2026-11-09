@@ -4,7 +4,7 @@
 // by tools/build_sw.mjs (tests/pwa.test.js fails when it is out of date).
 
 /* precache:begin */
-const VERSION = 'd5d474c806a3';
+const VERSION = 'e0db4c33c346';
 const FILES = [
  "./",
  "css/base.css",
