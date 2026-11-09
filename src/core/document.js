@@ -44,6 +44,22 @@ let coverRenderer = null;
 /** @param {typeof coverRenderer} fn */
 export function setCoverRenderer(fn) { coverRenderer = fn; }
 
+/** The designed cover in a document.json's meta, or null for the first page.
+ * @param {any} meta @returns {[string, number[]]|null} */
+export function coverSpecOf(meta) {
+  const cover = meta?.cover;
+  if (!cover) return null;
+  // Older files stored a bare colour.
+  return typeof cover[0] === 'string' ? [cover[0], [...cover[1]]] : ['simple', [...cover]];
+}
+
+/** A designed cover drawn with a given name, as PNG (null before a renderer is installed).
+ * @param {[string, number[]]} spec @param {string} name @returns {Promise<Blob|null>} */
+export async function designedCover(spec, name) {
+  if (!coverRenderer) return null;
+  return coverRenderer(/** @type {any} */ ({ coverSpec: spec, displayName: () => name }));
+}
+
 const BLANK_PNG = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='), c => c.charCodeAt(0));
 
 /**
@@ -517,11 +533,7 @@ export class Document {
     doc.path = path;
     doc.sign = sign;
     doc.store = store;
-    const cover = meta.cover;
-    if (cover) {
-      // Older files stored a bare colour.
-      doc.coverSpec = typeof cover[0] === 'string' ? [cover[0], [...cover[1]]] : ['simple', [...cover]];
-    }
+    doc.coverSpec = coverSpecOf(meta);
     return doc;
   }
 }

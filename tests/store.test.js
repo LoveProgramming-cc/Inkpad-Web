@@ -212,3 +212,20 @@ test('meta survives a reopen; settings load over the defaults', async () => {
   assert.deepEqual(s.pens.ball.widths, [0.7, 1.2, 2.0]);
   assert.equal(s.pens.laser, undefined);
 });
+
+test('a designed cover shows the name the notebook has now, after a rename', async () => {
+  const { store } = await fresh();
+  const { setCoverRenderer } = await import('../src/core/document.js');
+  // A stand-in renderer: the "picture" is the name it was drawn with.
+  setCoverRenderer(async doc => new Blob([doc.coverSpec ? 'cover:' + doc.displayName() : 'page']));
+  try {
+    const path = await store.newNotebook('', tpl, 'Old', ['ribbon', [0.2, 0.3, 0.5]]);
+    assert.equal(await (await store.cover(path)).text(), 'cover:Old');
+    const renamed = await store.rename(path, 'New');
+    assert.equal(await (await store.cover(renamed)).text(), 'cover:New');
+    const plain = await store.newNotebook('', tpl, 'Plain');
+    assert.equal(await (await store.cover(plain)).text(), 'page', 'without a designed cover the stored picture is used');
+  } finally {
+    setCoverRenderer(null);
+  }
+});

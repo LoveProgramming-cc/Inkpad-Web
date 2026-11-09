@@ -4,7 +4,7 @@
 // names starting with '.' are the library's own (.trash, .deleted).
 //
 // Records
-//   files  {path, blob, size, mtime (seconds), rev, id?, cover?}
+//   files  {path, blob, size, mtime (seconds), rev, id?, cover?, coverName?}
 //   dirs   {path, mtime}
 //   kv     {name, value}
 // `rev` comes from one counter for the whole store and goes up with every write, so
@@ -17,9 +17,9 @@ import { basename, dirname, rebase, within } from '../core/path.js';
 /**
  * @typedef {object} FileRec
  * @property {string} path @property {Blob} blob @property {number} size @property {number} mtime
- * @property {number} rev @property {string} [id] @property {Blob} [cover]
+ * @property {number} rev @property {string} [id] @property {Blob} [cover] @property {string} [coverName] the name a designed cover was drawn with
  * @typedef {{path: string, mtime: number}} DirRec
- * @typedef {{path: string, name: string, isDir: boolean, mtime: number, size: number, rev: number, sign: string|null, id?: string, cover?: Blob}} Stat
+ * @typedef {{path: string, name: string, isDir: boolean, mtime: number, size: number, rev: number, sign: string|null, id?: string, cover?: Blob, coverName?: string}} Stat
  */
 
 const KEY_END = '￿';
@@ -32,7 +32,7 @@ function statOf(r, isDir) {
   const f = /** @type {FileRec} */ (r);
   return {
     path: r.path, name: basename(r.path), isDir, mtime: r.mtime, size: isDir ? 0 : f.size, rev: isDir ? 0 : f.rev,
-    sign: isDir ? null : signOf(f), id: isDir ? undefined : f.id, cover: isDir ? undefined : f.cover,
+    sign: isDir ? null : signOf(f), id: isDir ? undefined : f.id, cover: isDir ? undefined : f.cover, coverName: isDir ? undefined : f.coverName,
   };
 }
 
@@ -239,7 +239,7 @@ export class Vfs {
 
   /** Remember something worked out about a file (its id, its cover) without changing it,
    * provided it is still the file with this rev. @param {string} path @param {number} rev
-   * @param {{id?: string, cover?: Blob}} fields */
+   * @param {{id?: string, cover?: Blob, coverName?: string}} fields */
   async annotate(path, rev, fields) {
     await this.backend.tx('rw', async t => {
       const f = await t.files.get(path);
@@ -341,7 +341,9 @@ export class Vfs {
       if (clash && !(overwrite && file && (await t.files.get(to)))) throw new Exists(to);
       if (file) {
         await t.files.delete(from);
-        await t.files.put({ ...file, path: to });
+        // A designed cover shows the file's name: under a new name it is drawn again.
+        const { cover: _cover, coverName: _coverName, ...rest } = file;
+        await t.files.put({ ...rest, path: to });
       } else {
         const prefix = from + '/';
         const files = await t.files.range(prefix), dirs = await t.dirs.range(prefix);
