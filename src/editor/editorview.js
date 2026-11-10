@@ -92,6 +92,8 @@ export class Editor {
     cv.on('selection-changed', () => this.placeSelbar());
     cv.on('menu-wanted', (/** @type {number} */ x, /** @type {number} */ y) => this.canvasMenu(x, y));
     cv.onEraseDone = () => { if (this.settings.eraser_auto && this.tool === 'eraser') this.selectTool(this.prevTool); };
+    // After scribbling something out, how much went, with Undo (Settings: "Show Undo after scribbling out").
+    cv.onScribble = n => { if (this.settings.scribble_toast !== false) toast(trf('已擦除 %d 项', n), { action: { label: tr('撤销'), fn: () => this.undo() } }); };
     cv.onPullAdd = side => this.ops.pullAdd(side);
     cv.el.addEventListener('contextmenu', e => this.canvasContext(e));
 
