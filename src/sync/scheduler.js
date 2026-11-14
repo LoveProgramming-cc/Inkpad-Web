@@ -127,7 +127,7 @@ export class SyncScheduler {
     if (r.meta) await app.store.reloadMeta();
     const changed = r.down || r.removed || r.conflicts || r.moved || r.meta || r.merged;
     if (changed && !app.editor) await app.library.refresh();
-    if (r.merged && !quiet) toast(trf('同步完成：%d 本笔记两边都改过，已自动合并', r.merged));
+    // One message, so that none is pushed off the screen by the next.
     if (r.conflicts) toast(trf('同步完成：%d 本笔记两边都改过，云端版本已另存为副本', r.conflicts));
     else if (!quiet) toast(r.up || r.down || r.merged ? trf('同步完成：上传 %d，下载 %d，合并 %d', r.up, r.down, r.merged) : tr('已是最新'));
   }

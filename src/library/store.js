@@ -14,6 +14,9 @@ import { hexId } from '../core/uuid.js';
 export const EXT = '.inkpad';
 export const ARCHIVE_META = 'inkpad-library.json';
 export const TRASH = '.trash';
+
+/** The part of the library's metadata that is synced whole. @param {any} m */
+const sharedOf = m => JSON.stringify([m.favorites ?? [], m.folders ?? {}]);
 export const ARCHIVE = '.deleted';
 export const FOLDER_COLORS = [[0.49, 0.74, 0.99], [0.36, 0.80, 0.82], [0.47, 0.80, 0.52], [0.98, 0.82, 0.38],
   [0.99, 0.66, 0.38], [0.96, 0.50, 0.50], [0.74, 0.60, 0.96], [0.66, 0.70, 0.76]];
@@ -42,6 +45,8 @@ export class Store {
     this.root = '';
     /** @type {{favorites: string[], trashed: Record<string, string>, folders: Record<string, any>, archived?: Record<string, string>, ts?: number}} */
     this.meta = { favorites: [], trashed: {}, folders: {} };
+    /** The synced part of the metadata as last read or written: see _saveMeta. */
+    this._shared = '';
   }
 
   /** @param {import('../platform/vfs.js').Vfs} vfs */
@@ -53,6 +58,7 @@ export class Store {
     store.meta.favorites ??= [];
     store.meta.trashed ??= {};   // trash name -> folder it came from
     store.meta.folders ??= {};   // folder -> {color: [r, g, b], icon: name}
+    store._shared = sharedOf(store.meta);
     return store;
   }
 
@@ -60,10 +66,16 @@ export class Store {
   async reloadMeta() {
     const saved = await this.vfs.kvGet('library');
     if (saved && typeof saved === 'object') Object.assign(this.meta, copy(saved));
+    this._shared = sharedOf(this.meta);
   }
 
   async _saveMeta() {
-    this.meta.ts = now();
+    // The time stamp says when the favourites and folder styles, the part that is synced whole
+    // (newer wins), were last changed here: other changes leave it, or a device with stale
+    // favourites that trashed a notebook would write them over everyone's.
+    const shared = sharedOf(this.meta);
+    if (shared !== this._shared) this.meta.ts = now();
+    this._shared = shared;
     await this.vfs.kvSet('library', this.meta);
   }
 
@@ -140,6 +152,9 @@ export class Store {
 
   /** A path in `folder` that is free: "name", then "name 2", "name 3"... @param {string} folder @param {string} name */
   async unique(folder, name, ext = '') {
+    // A name is made one the library can show: no slash (it would be a folder), no dot to begin
+    // with (a hidden file, which the library never shows).
+    name = name.trim().replace(/\//g, '-').replace(/^\.+/, '').trim() || tr('未命名');
     let path = join(folder, name + ext);
     let n = 2;
     while (await this.vfs.exists(path)) {

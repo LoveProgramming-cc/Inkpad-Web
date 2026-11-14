@@ -53,6 +53,9 @@ export async function installClient(vfs, text) {
   if (!client || !client.client_id || !client.token_uri) throw new DriveError(tr('这不是 OAuth 客户端凭据文件'));
   // A file exported from Inkpad names the folder to sync with; one from Google does not, and leaves that as it is here.
   data.inkpad_folder ??= await folderId(vfs);
+  // A sign-in belongs to the client it was made with: another client drops it.
+  const old = (await loadClient(vfs)) || /** @type {any} */ ({});
+  if (old.client_id !== client.client_id) await vfs.kvDelete('google_token');
   await vfs.kvSet('google_client', data);
 }
 
@@ -97,6 +100,7 @@ async function post(url, fields) {
   const data = await r.json().catch(() => ({}));
   if (!r.ok) {
     const e = new DriveError(tr('Google 登录出错：') + (data.error_description || data.error || r.status), r.status);
+    /** @type {any} */ (e).grant = data.error;
     throw e;
   }
   return data;
@@ -177,7 +181,17 @@ export async function accessToken(vfs, force = false) {
   const token = await vfs.kvGet('google_token');
   if (!client || !token) throw new DriveError(tr('尚未连接 Google Drive'));
   if (force || now() >= (token.expires_at || 0)) {
-    const fresh = await post(client.token_uri || TOKEN_URI, { client_id: client.client_id, client_secret: client.client_secret || '', refresh_token: token.refresh_token, grant_type: 'refresh_token' });
+    let fresh;
+    try {
+      fresh = await post(client.token_uri || TOKEN_URI, { client_id: client.client_id, client_secret: client.client_secret || '', refresh_token: token.refresh_token, grant_type: 'refresh_token' });
+    } catch (e) {
+      if (/** @type {any} */ (e).grant !== 'invalid_grant') throw e;
+      // The sign-in is no longer good (the grant was taken back, the password changed, or an app
+      // still "in testing" let it lapse after a week): it is forgotten, so that the settings offer
+      // to connect again, and the user is told just that.
+      await vfs.kvDelete('google_token');
+      throw new DriveError(tr('Google Drive 的登录已失效，请在设置中重新连接'));
+    }
     token.access_token = fresh.access_token;
     token.expires_at = now() + (fresh.expires_in || 3600) - 60;
     await vfs.kvSet('google_token', token);

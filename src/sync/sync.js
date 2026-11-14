@@ -422,8 +422,11 @@ async function run(vfs, drive, opts, thorough) {
   const { notebooks } = await scan(vfs);
   /** @type {Local[]} */
   const found = [...notebooks.keys()].sort().map(p => ({ path: p, rel: p, inTrash: false }));
-  const trashNames = (await vfs.list(TRASH)).filter(e => !e.isDir && e.name.endsWith(EXT)).map(e => e.name).sort();
-  for (const n of trashNames) found.push({ path: join(TRASH, n), rel: n, inTrash: true });
+  // The trash, folders put there included: what is in a trashed folder is in the trash too, not
+  // gone. (Taken for gone, it would be passed on to other devices as deleted.)
+  const trashRels = (await vfs.walk(TRASH)).files.map(f => f.path.slice(TRASH.length + 1))
+    .filter(r => r.endsWith(EXT) && !r.split('/').some(part => part.startsWith('.'))).sort();
+  for (const r of trashRels) found.push({ path: join(TRASH, r), rel: r, inTrash: true });
   const onlyPaths = only ? new Set(only) : null;
   // A notebook that has not been written since the last sync is known by its place: it is not
   // opened to be asked who it is. This device's record of the last sync is the list of what has
@@ -471,12 +474,19 @@ async function run(vfs, drive, opts, thorough) {
   /** Move a local notebook to where the index says it belongs. */
   const place = async (/** @type {string} */ nid, /** @type {string} */ rel, /** @type {boolean} */ inTrash) => {
     const path = /** @type {Local} */ (local.get(nid)).path;
-    let target = inTrash ? join(TRASH, basename(rel)) : rel;
+    // In the trash a notebook keeps the folder it was trashed with, as on the device that trashed
+    // the folder, so that putting the folder back brings it along everywhere.
+    let target = inTrash ? join(TRASH, rel) : rel;
     if (target !== path) {
       target = await uniquePath(vfs, target);
       await vfs.move(path, target);
+      // A folder in the trash that this leaves empty goes with it.
+      for (let dir = dirname(path); dir.startsWith(TRASH + '/'); dir = dirname(dir)) {
+        if ((await vfs.list(dir)).length) break;
+        await vfs.rmdir(dir);
+      }
     }
-    local.set(nid, { path: target, rel: inTrash ? basename(target) : target, inTrash });
+    local.set(nid, { path: target, rel: inTrash ? target.slice(TRASH.length + 1) : target, inTrash });
   };
 
   /** [what stands for the content, sign] of a notebook here. No notebook is read through for
@@ -669,7 +679,7 @@ async function run(vfs, drive, opts, thorough) {
       }
       if (entry.trashed === true && !before) continue;   // sitting in another device's trash; no need to fetch it
       if (typeof entry.path !== 'string' || typeof entry.file !== 'string') continue;
-      let target = entry.trashed === true ? join(TRASH, basename(entry.path)) : entry.path;
+      let target = entry.trashed === true ? join(TRASH, entry.path) : entry.path;
       target = await uniquePath(vfs, target);
       // Put together aside, and moved into the library only when it is whole: a download that is
       // cut off leaves nothing there.
@@ -677,22 +687,27 @@ async function run(vfs, drive, opts, thorough) {
       await vfs.write(target, coming);
       const sign = await signOf(target);
       agreed.set(nid, ['written ' + sign, sign]);
-      local.set(nid, { path: target, rel: entry.trashed === true ? basename(target) : target, inTrash: entry.trashed === true });
+      local.set(nid, { path: target, rel: entry.trashed === true ? target.slice(TRASH.length + 1) : target, inTrash: entry.trashed === true });
       summary.down++;
     } else if (here && entry) {
       const [mine] = await localMd5(nid, here.path);
       const wasLocal = (typeof before?.local === 'string' && before.local) ? before.local : beforeMd5;
       const unchanged = before != null && eq(mine, wasLocal);
       let content = true;
+      // Put back from the trash here since this device last followed a deletion into it.
+      const restored = before != null && before.trashed === true && !here.inTrash;
       if (entry.deleted === true) {
-        if (here.inTrash || unchanged) {
-          // Deleted elsewhere and not edited here since: follow, into the trash.
+        if (here.inTrash || (unchanged && !restored)) {
+          // Deleted elsewhere and not edited here since: follow, into the trash. What was done is
+          // remembered, so that the notebook being brought back, here or elsewhere, is told from
+          // this device putting it in the trash of its own accord.
           await place(nid, here.rel, true);
-          delete known[nid];
+          const at = /** @type {Local} */ (local.get(nid));
+          known[nid] = { path: at.rel, trashed: true, md5: entry.md5 ?? '', local: mine, stat: await signOf(at.path) };
           if (!here.inTrash) summary.removed++;
           continue;
         }
-        await push(nid, entry);   // edited after the deletion: the edit wins
+        await push(nid, entry);   // edited, or brought back, after the deletion: that wins
         content = false;
       }
       if (content) await settle(nid, entry, before);

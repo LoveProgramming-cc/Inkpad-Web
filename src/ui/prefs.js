@@ -152,7 +152,7 @@ export async function openPrefs(app, section) {
   const installRow = pwa.isStandalone() ? actionRow(tr('安装 Inkpad'), tr('已作为应用安装'))
     : pwa.canInstall() ? actionRow(tr('安装 Inkpad'), tr('像应用一样有自己的图标和窗口'), h('button', { class: 'suggested', onClick: async (/** @type {Event} */ e) => { if (await pwa.install()) /** @type {HTMLElement} */ (e.currentTarget).hidden = true; } }, tr('安装')))
       : actionRow(tr('安装 Inkpad'), pwa.isApple() ? tr('在 Safari 里点“分享”，再选“添加到主屏幕”') : tr('在浏览器菜单里选择“安装”或“添加到主屏幕”'));
-  const appGroup = group(tr('应用'), null, installRow,
+  const appGroup = group(tr('应用程序'), null, installRow,
     actionRow(tr('离线使用'), !pwa.offlineSupported() ? tr('只在 https 网址下可用') : pwa.worksOffline() ? tr('已就绪：没有网络也能打开和书写') : tr('正在准备，下次打开时可用')));
 
   const body = h('div', { style: { padding: '4px 2px' } }, appearance, writing, google, storage, exportGroup, toolbar, appGroup, advanced);

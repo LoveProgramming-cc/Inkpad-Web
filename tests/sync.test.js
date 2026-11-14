@@ -13,6 +13,7 @@ import { sync, scan, cloudDeleted, cloudRestore, cloudFolderOf, parseFolder, emp
 import { stripped } from '../src/sync/blobs.js';
 import { Cloud, FakeDrive, Wrapped } from './fakedrive.js';
 import { sampleDocument } from './helpers.js';
+import { tr as tr0 } from '../src/core/i18n.js';
 
 const tpl = { w: 595, h: 842, paper: 'blank', color: [1, 1, 1] };
 const black = [0, 0, 0];
@@ -485,4 +486,68 @@ test('a skipped notebook is left alone (A:testSkippedNotebookIsLeftAlone)', asyn
   assert.equal(s.up, 0);
   const again = await syncOf(a, cloud);
   assert.equal(again.up, 1);
+});
+
+test('a notebook brought back after another device followed its deletion stays back (A:testBroughtBackStaysBack)', async () => {
+  // 1. A folder put in the trash, followed by the other device, then put back.
+  let cloud = new Cloud();
+  let a = await device(), b = await device();
+  const folder = await a.store.newFolder('', '课程');
+  await a.store.newNotebook(folder, tpl, '数学');
+  await a.store.newNotebook('', tpl, '散页');
+  await syncOf(a, cloud); await syncOf(b, cloud); await syncOf(a, cloud);
+  await a.store.trash('课程');
+  await syncOf(a, cloud); await syncOf(b, cloud); await syncOf(a, cloud);
+  assert.deepEqual(await books(b), ['散页.inkpad']);
+  assert.ok(await b.vfs.exists('.trash/课程/数学.inkpad'), 'in the trash, in its folder');
+  await a.store.restore((await a.store.trashed())[0].path);
+  for (let i = 0; i < 3; i++) { await syncOf(a, cloud); await syncOf(b, cloud); }
+  assert.deepEqual(await books(a), ['散页.inkpad', '课程/数学.inkpad']);
+  assert.deepEqual(await books(b), ['散页.inkpad', '课程/数学.inkpad']);
+  assert.equal((await b.vfs.list('.trash')).filter(e => !e.name.startsWith('.')).length, 0, 'no empty folder left in the trash');
+
+  // 2. Deleted for good, followed, then fetched back from the cloud.
+  cloud = new Cloud();
+  a = await device(); b = await device();
+  const loose = await a.store.newNotebook('', tpl, '散页');
+  await syncOf(a, cloud); await syncOf(b, cloud);
+  await a.store.trash(loose);
+  await a.store.delete((await a.store.trashed())[0].path);
+  await syncOf(a, cloud); await syncOf(b, cloud); await syncOf(a, cloud);
+  const gone = await cloudDeleted(a.vfs, new FakeDrive(cloud));
+  await cloudRestore(a.vfs, new FakeDrive(cloud), gone.map(g => g.id));
+  for (let i = 0; i < 3; i++) { await syncOf(a, cloud); await syncOf(b, cloud); }
+  assert.deepEqual(await books(a), ['散页.inkpad']);
+  assert.deepEqual(await books(b), ['散页.inkpad']);
+
+  // 3. ...or put back from the trash on the device that followed.
+  await a.store.trash('散页.inkpad');
+  await a.store.delete((await a.store.trashed())[0].path);
+  await syncOf(a, cloud); await syncOf(b, cloud); await syncOf(a, cloud); await syncOf(b, cloud);
+  await b.store.restore((await b.store.trashed())[0].path);
+  for (let i = 0; i < 3; i++) { await syncOf(b, cloud); await syncOf(a, cloud); }
+  assert.deepEqual(await books(a), ['散页.inkpad']);
+  assert.deepEqual(await books(b), ['散页.inkpad']);
+});
+
+test('favourites are not written over by a device that only trashed something (A:testStaleFavouritesStayStale)', async () => {
+  const cloud = new Cloud();
+  const a = await device(), b = await device();
+  const one = await a.store.newNotebook('', tpl, '一');
+  await a.store.newNotebook('', tpl, '二');
+  await syncOf(a, cloud); await syncOf(b, cloud);
+  await a.store.toggleFavorite(one);
+  await syncOf(a, cloud);
+  // B has not seen the favourite yet, and puts the other notebook in the trash.
+  await b.store.trash('二.inkpad');
+  await syncOf(b, cloud); await syncOf(a, cloud);
+  await a.store.reloadMeta(); await b.store.reloadMeta();
+  assert.deepEqual((await a.store.favorites()).map(e => e.name), ['一']);
+  assert.deepEqual((await b.store.favorites()).map(e => e.name), ['一']);
+});
+
+test('a name the library could not show is made one it can', async () => {
+  const a = await device();
+  assert.equal(await a.store.newFolder('', '.隐藏/文件夹'), '隐藏-文件夹');
+  assert.equal(await a.store.newNotebook('', tpl, '..'), tr0('未命名') + '.inkpad');
 });
