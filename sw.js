@@ -4,7 +4,7 @@
 // by tools/build_sw.mjs (tests/pwa.test.js fails when it is out of date).
 
 /* precache:begin */
-const VERSION = '5ee4b939212a';
+const VERSION = 'badfc0c69bc8';
 const FILES = [
  "./",
  "css/base.css",
@@ -46,6 +46,7 @@ const FILES = [
  "src/data/ja.json",
  "src/data/web.json",
  "src/editor/canvas.js",
+ "src/editor/clipboard.js",
  "src/editor/editorview.js",
  "src/editor/input.js",
  "src/editor/minimap.js",

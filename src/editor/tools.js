@@ -59,7 +59,9 @@ const methods = {
     } else if (tool === 'text' || tool === 'note') {
       ctx.strokeStyle = 'rgba(30,30,30,0.85)'; ctx.beginPath(); ctx.moveTo(x - 4, y - 9); ctx.lineTo(x + 4, y - 9); ctx.moveTo(x, y - 9); ctx.lineTo(x, y + 9); ctx.moveTo(x - 4, y + 9); ctx.lineTo(x + 4, y + 9); ctx.stroke();
     } else if (!cv.showCross || tool === 'laser') {
-      const size = tool === 'pen' || tool === 'hl' || tool === 'tape' ? Math.max(3, (tool === 'pen' ? cv.penWidth : tool === 'hl' ? cv.hlWidth : cv.tapeWidth) * cv.zoom / 2) : 3;
+      // A pen's dot is as wide as its strokes begin: at the pressure they come down with.
+      const penW = () => new Stroke(cv.penType, cv.penColor, cv.penWidth, [], cv.penSens).wAt(cv.typicalPressure);
+      const size = tool === 'pen' || tool === 'hl' || tool === 'tape' ? Math.max(3, (tool === 'pen' ? penW() : tool === 'hl' ? cv.hlWidth : cv.tapeWidth) * cv.zoom / 2) : 3;
       ctx.beginPath(); ctx.arc(x, y, size + 1, 0, TAU); ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.fill();
       ctx.beginPath(); ctx.arc(x, y, size, 0, TAU); ctx.fillStyle = tool === 'laser' ? css(cv.laserColor) : 'rgba(26,26,26,0.95)'; ctx.fill();
     } else {
@@ -261,6 +263,7 @@ const methods = {
     const cv = /** @type {PageCanvas} */ (/** @type {any} */ (this));
     const [x0, y0, x1, y1] = cv.sel.bbox;
     const op = cv.op;
+    if (op && op.kind === 'move' && op.reflowed) return op.reflowed.bbox.slice();   // the box follows the rewrapped lines
     if (op && op.kind === 'move') {
       const { s, origin: [ox, oy], dx, dy } = op;
       return [ox + (x0 - ox) * s + dx, oy + (y0 - oy) * s + dy, ox + (x1 - ox) * s + dx, oy + (y1 - oy) * s + dy];
@@ -371,6 +374,13 @@ const methods = {
         op.live = true;
       }
       const [px, py] = cv._toPage(i, x, y);
+      if (op.reflow) {
+        const t = reflowText(cv.sel.items[0], op.reflow, px - op.start[0]);
+        op.reflowed = t;
+        op.layer = cv._raster(i, t.bbox, (ctx, env) => drawItem(ctx, env, t));
+        cv.queueDraw();
+        return;
+      }
       if (op.scaling) {
         const [ox, oy] = op.origin, [sx, sy] = op.start;
         op.s = Math.max(0.1, Math.hypot(px - ox, py - oy) / Math.max(1.0, Math.hypot(sx - ox, sy - oy)));
@@ -543,6 +553,11 @@ const methods = {
         item.pts.push([px, py, item.pts[item.pts.length - 1][2]]);
       }
       item.updateBbox();
+      if (item.tool === 'fountain' || item.tool === 'brush') {
+        // The hover dot shows how wide strokes begin: the pressure of the first few points.
+        const start = item.pts.slice(0, 6);
+        cv.typicalPressure += (start.reduce(/** @param {number} a @param {number[]} p */ (a, p) => a + p[2], 0) / start.length - cv.typicalPressure) * 0.3;
+      }
       if (item.tool !== 'hl' && item.tool !== 'tape' && !fixed && !op.rule && cv.scribbleErase && geom.isScribble(item.pts, cv.scribbleLoose)) {
         const targets = geom.scribbleTargets(item.pts, page.items);
         if (targets.length) {
@@ -582,7 +597,10 @@ const methods = {
       cv.hidden = null;
       const olds = cv.sel.items;
       const { s, origin: [ox, oy], dx, dy } = op;
-      if (Math.abs(s - 1) > 1e-3 || Math.hypot(dx, dy) * cv.zoom > 1) {
+      if (op.reflowed) {
+        doc.replaceItems(page, olds, [op.reflowed]);
+        cv.select(page, [op.reflowed]);
+      } else if (Math.abs(s - 1) > 1e-3 || Math.hypot(dx, dy) * cv.zoom > 1) {
         const news = olds.map(/** @param {any} it */ it => it.transformed(s, ox, oy, dx, dy));
         if (op.copy) doc.addItems(page, news);   // the originals stay where they were
         else doc.replaceItems(page, olds, news);
@@ -724,11 +742,18 @@ const methods = {
       }
     }
     const items = sel.items;
+    // One text box taken by its left or right edge: the lines get wider or narrower instead.
+    let reflow = 0;
+    const handle = Math.hypot((px - x1) * k - 4, (py - y1) * k - 4) <= 13;
+    if (scaling && !handle && items.length === 1 && items[0] instanceof Text) {
+      const inner = Math.min(r, (bx1 - bx0) / 4, (by1 - by0) / 4);
+      if (by0 + inner < py && py < by1 - inner) { reflow = px <= (x0 + x1) / 2 ? -1 : 1; scaling = false; }
+    }
     // Lift the items out of the page raster and carry them as one image.
     const layer = cv._raster(i, sel.bbox, (ctx, env) => { for (const it of items) drawItem(ctx, env, it); });
     cv.hidden = new Set(items);
     cv._repaintPage(sel.page, sel.bbox);
-    cv.op = { kind: 'move', page: sel.page, start: [px, py], origin, copy: false, scaling, s: 1.0, dx: 0.0, dy: 0.0, layer, at: [x, y], slack: reach > 7 ? 8 : 0, live: false };
+    cv.op = { kind: 'move', page: sel.page, start: [px, py], origin, copy: false, scaling, s: 1.0, dx: 0.0, dy: 0.0, layer, at: [x, y], slack: reach > 7 ? 8 : 0, live: false, reflow, reflowed: null };
     cv.emit('selection-changed');
     cv.queueDraw();
     return true;
@@ -856,7 +881,7 @@ const methods = {
     }
     const page = doc.pages[cv.currentPageIndex()];
     const items = cv.clip.map(/** @param {any} it */ it => it.transformed(1, 0, 0, 14, 14));
-    cv.clip = items;
+    cv.clip = items.map(/** @param {any} it */ it => it.transformed(1, 0, 0, 0, 0));   // a copy of its own, never the pasted items
     doc.addItems(page, items);
     cv.select(page, items);
     return true;
@@ -928,3 +953,14 @@ function eraseKind(it) {
 
 Object.assign(PageCanvas.prototype, methods);
 export { lassoKind, eraseKind };
+
+/** The text box t with its lines made dx wider at its right edge (side 1) or its left (-1).
+ * @param {Text} t @param {number} side @param {number} dx */
+export function reflowText(t, side, dx) {
+  const pad = t.x - t.bbox[0];
+  const now = t.wrap > 0 ? t.wrap : t.bbox[2] - t.bbox[0] - 2 * pad;
+  const wrap = Math.max(t.size * 2, now + side * dx);   // room for a letter or two on a line
+  const x = side < 0 ? t.x + (now - wrap) : t.x;
+  return new Text(x, t.y, t.text, t.size, t.color, wrap, t.bg);
+}
+

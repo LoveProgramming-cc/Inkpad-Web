@@ -16,6 +16,7 @@ import { inkOn } from '../core/render.js';
 import { createCanvas, context2d, release } from '../platform/canvas.js';
 import { mono } from '../core/clock.js';
 import { tr } from '../core/i18n.js';
+import { Clipboard } from './clipboard.js';
 
 export const TOP = 64, GAP = 14, SIDE = 24, BOTTOM = 48;
 export const MAX_PIXELS = 12_000_000;   // pages bigger than this on screen are cached as a window around the viewport
@@ -53,6 +54,10 @@ function bisectRight(arr, x) {
 }
 
 export class PageCanvas {
+  /** Copied items, shared by every notebook. */
+  get clip() { return Clipboard.items; }
+  set clip(v) { Clipboard.items = v; }
+
   constructor() {
     this.el = document.createElement('div');
     this.el.className = 'canvas';
@@ -80,7 +85,7 @@ export class PageCanvas {
     /** @type {any} */ this.op = null;
     /** @type {any} */ this.sel = null;
     /** @type {Set<any>|null} */ this.hidden = null;
-    /** @type {any[]} */ this.clip = [];
+    this.typicalPressure = 0.5;   // a running mean of the pressure strokes come down with, for the hover dot
     this.ptr = [0, 0];
     this.penDown = false;
     this.mouseDown = false;

@@ -6,13 +6,17 @@ import { askText } from '../ui/dialog.js';
 import { toast } from '../ui/toast.js';
 import { paperDialog } from '../ui/paperdialog.js';
 import { tr, trf } from '../core/i18n.js';
+import { Clipboard } from './clipboard.js';
 
 export class PageOps {
   /** @param {any} editor the editor view: it has `doc`, `canvas`, `settings` and `page()` */
   constructor(editor) {
     this.ed = editor;
-    /** @type {Page|null} */ this.clip = null;
   }
+
+  /** A copied page, shared by every notebook. @returns {Page|null} */
+  get clip() { return Clipboard.page; }
+  set clip(v) { Clipboard.page = v; }
 
   get doc() { return this.ed.doc; }
   get canvas() { return this.ed.canvas; }
